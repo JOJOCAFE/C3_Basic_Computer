@@ -1,0 +1,30 @@
+# ESP-IDF build outputs
+build/
+build-*/
+Old_version/build/
+Old_version/build-c3/
+Old_version/build-idf53/
+
+# ESP-IDF generated local configuration
+sdkconfig
+sdkconfig.old
+Old_version/sdkconfig
+Old_version/sdkconfig.old
+
+# Managed dependencies downloaded by ESP-IDF
+managed_components/
+Old_version/managed_components/
+
+# Python/cache/editor noise
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.vscode/
+.idea/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Windows zone identifier sidecars
+*:Zone.Identifier
