@@ -45,15 +45,17 @@ Date: 2026-06-27
 
 ## Known Unstaged Local Changes
 
-YMODEM transfer, guarded C3COM execution, and Sprint 007/008/009 task docs are
-ready to commit.
+Sprint 010 terminal service planning docs are ready to commit.
 
 ## Recommended Next Start
 
-1. Commit the board-tested YMODEM and C3COM runner work.
-2. Start Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
-3. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
-4. Resume ASM capture as a non-execution milestone after ASM editor mode is
+1. Start Sprint 010 from
+   `docs/SPRINT_010_TERMINAL_SERVICE_AND_BASIC_TERM.md`.
+2. Implement `/bin/term` as an output-only ANSI/VT100 terminal service.
+3. Add BASIC `TERM "..."` as a safe bridge to `/bin/term`.
+4. Then resume Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
+5. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
+6. Resume ASM capture as a non-execution milestone after ASM editor mode is
    stable and board-tested.
 
 Keep Going.

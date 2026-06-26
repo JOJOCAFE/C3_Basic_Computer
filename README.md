@@ -295,13 +295,16 @@ Completed and board-checked:
 
 Recommended next implementation:
 
-1. Start Sprint 009: [`docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`](docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md).
-2. Add ASM nano mode: `ASM /asm/name.asm` should edit and validate text only.
-3. Resume ASM capture as a non-execution milestone after ASM editor mode is
+1. Start Sprint 010: [`docs/SPRINT_010_TERMINAL_SERVICE_AND_BASIC_TERM.md`](docs/SPRINT_010_TERMINAL_SERVICE_AND_BASIC_TERM.md).
+2. Add `/bin/term` as an output-only ANSI/VT100 terminal service.
+3. Add BASIC `TERM "..."` as a safe bridge to `/bin/term` for simple text UI.
+4. Then resume Sprint 009: [`docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`](docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md).
+5. Add ASM nano mode: `ASM /asm/name.asm` should edit and validate text only.
+6. Resume ASM capture as a non-execution milestone after ASM editor mode is
    stable and board-tested.
-4. Add a future C3COM relocation/toolchain slice if normal C output should use
+7. Add a future C3COM relocation/toolchain slice if normal C output should use
    `.rodata` and relocations.
-5. Add system/monitor commands only after their behavior is documented and
+8. Add system/monitor commands only after their behavior is documented and
    testable.
 
 ## UX and behavior goals
