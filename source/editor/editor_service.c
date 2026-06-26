@@ -1,7 +1,11 @@
 #include "editor_service.h"
 
 #include "basic.h"
+#include "hardware.h"
+#include "hardware_adc.h"
+#include "hardware_gpio.h"
 #include "input.h"
+#include "shell.h"
 #include "storage.h"
 
 #include <ctype.h>
@@ -26,6 +30,8 @@ typedef struct {
 typedef struct {
     const shell_exec_io_t *io;
 } editor_basic_io_t;
+
+static const char *skip_ws(const char *s);
 
 static void free_buffer(editor_buffer_t *buffer)
 {
@@ -76,6 +82,141 @@ static int basic_editor_read_line(void *ctx, char *buf, size_t len)
 {
     editor_basic_io_t *basic_io = (editor_basic_io_t *)ctx;
     return editor_read_line(basic_io ? basic_io->io : NULL, buf, len);
+}
+
+static bool command_starts_with_ci(const char *command, const char *prefix)
+{
+    size_t len = strlen(prefix);
+    return strncasecmp(command, prefix, len) == 0 &&
+        (command[len] == '\0' || isspace((unsigned char)command[len]));
+}
+
+static bool consume_token_ci(const char **cursor, const char *token)
+{
+    const char *s = skip_ws(*cursor);
+    size_t len = strlen(token);
+    if (strncasecmp(s, token, len) != 0) {
+        return false;
+    }
+    if (s[len] != '\0' && !isspace((unsigned char)s[len])) {
+        return false;
+    }
+    *cursor = s + len;
+    return true;
+}
+
+static bool parse_read_pin_command(const char *command, const char *device, int *pin)
+{
+    const char *cursor = command;
+    if (!consume_token_ci(&cursor, device) ||
+        !consume_token_ci(&cursor, "read") ||
+        !consume_token_ci(&cursor, "-p")) {
+        return false;
+    }
+
+    cursor = skip_ws(cursor);
+    char *end = NULL;
+    long parsed = strtol(cursor, &end, 0);
+    if (end == cursor || parsed < 0 || parsed > 21) {
+        return false;
+    }
+    if (*skip_ws(end) != '\0') {
+        return false;
+    }
+
+    *pin = (int)parsed;
+    return true;
+}
+
+static esp_err_t basic_editor_service_exec(void *ctx, const char *command, bool hardware)
+{
+    editor_basic_io_t *basic_io = (editor_basic_io_t *)ctx;
+    const shell_exec_io_t *parent_io = basic_io ? basic_io->io : NULL;
+
+    const char *trimmed = command;
+    while (trimmed && *trimmed && isspace((unsigned char)*trimmed)) {
+        trimmed++;
+    }
+
+    if (!trimmed || *trimmed == '\0') {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    shell_exec_io_t io = {
+        .write = parent_io ? parent_io->write : NULL,
+        .read_line = parent_io ? parent_io->read_line : NULL,
+        .ctx = parent_io ? parent_io->ctx : NULL,
+        .flags = 0,
+    };
+
+    shell_status_t status;
+    if (hardware) {
+        int pin = -1;
+        if (parse_read_pin_command(trimmed, "gpio", &pin)) {
+            int level = 0;
+            esp_err_t err = hardware_init();
+            if (err == ESP_OK) {
+                err = hardware_gpio_read((gpio_num_t)pin, &level, false);
+            }
+            if (err != ESP_OK) {
+                editor_write(parent_io, "BASIC hardware error\r\n");
+                return err;
+            }
+            char msg[48];
+            snprintf(msg, sizeof(msg), "GPIO%d READ %d\r\nOK\r\n", pin, level ? 1 : 0);
+            editor_write(parent_io, msg);
+            return ESP_OK;
+        }
+        if (parse_read_pin_command(trimmed, "adc", &pin)) {
+            hardware_adc_result_t result = {0};
+            esp_err_t err = hardware_init();
+            if (err == ESP_OK) {
+                err = hardware_adc_read_gpio((gpio_num_t)pin, NULL, &result);
+            }
+            if (err != ESP_OK) {
+                editor_write(parent_io, "BASIC hardware error\r\n");
+                return err;
+            }
+            char msg[80];
+            snprintf(msg, sizeof(msg), "ADC GPIO%d RAW %d", pin, result.raw);
+            editor_write(parent_io, msg);
+            if (result.millivolts_valid) {
+                snprintf(msg, sizeof(msg), " MV %d", result.millivolts);
+                editor_write(parent_io, msg);
+            }
+            editor_write(parent_io, "\r\nOK\r\n");
+            return ESP_OK;
+        }
+        if (!command_starts_with_ci(trimmed, "gpio read") &&
+            !command_starts_with_ci(trimmed, "adc read")) {
+            editor_write(parent_io, "BASIC hardware command blocked\r\n");
+        }
+        return ESP_ERR_NOT_ALLOWED;
+    } else {
+        if (!command_starts_with_ci(trimmed, "PWD") &&
+            !command_starts_with_ci(trimmed, "CAT")) {
+            editor_write(parent_io, "BASIC shell command blocked\r\n");
+            return ESP_ERR_NOT_ALLOWED;
+        }
+        if (strchr(trimmed, '|')) {
+            editor_write(parent_io, "BASIC shell pipe blocked\r\n");
+            return ESP_ERR_NOT_ALLOWED;
+        }
+        if (strcasecmp(trimmed, "PWD") == 0) {
+            status = shell_exec_command(SHELL_COMMAND_PWD, NULL, &io);
+        } else {
+            const char *cat_args = skip_ws(trimmed + 3);
+            status = shell_exec_command(SHELL_COMMAND_CAT, cat_args, &io);
+        }
+    }
+
+    if (status != SHELL_STATUS_OK) {
+        char msg[64];
+        snprintf(msg, sizeof(msg), "BASIC service error: %s\r\n", shell_status_name(status));
+        editor_write(parent_io, msg);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 static const char *skip_ws(const char *s)
@@ -260,7 +401,7 @@ static void show_help(const shell_exec_io_t *io, editor_mode_t mode)
     if (mode == EDITOR_MODE_BASIC) {
         editor_write(io,
             ":run run BASIC program\r\n"
-            ":debug step-run BASIC program (planned)\r\n");
+            ":debug step-run BASIC program\r\n");
     }
     editor_write(io,
         "Any other line appends text.\r\n");
@@ -379,11 +520,59 @@ static editor_status_t run_basic_buffer(const shell_exec_io_t *io, const editor_
     basic_io_t basic_io = {
         .read_line = basic_editor_read_line,
         .write = basic_editor_write,
+        .service_exec = basic_editor_service_exec,
         .ctx = &basic_ctx,
     };
 
     editor_write(io, "RUN\r\n");
     err = basic_run(&program, &basic_io);
+    basic_clear(&program);
+    if (err != ESP_OK) {
+        return EDITOR_STATUS_SAVE_FAILED;
+    }
+    return EDITOR_STATUS_OK;
+}
+
+static editor_status_t debug_basic_buffer(const shell_exec_io_t *io, const editor_request_t *request,
+                                          editor_buffer_t *buffer)
+{
+    editor_status_t status = validate_before_save(io, request, buffer);
+    if (status != EDITOR_STATUS_OK) {
+        return status;
+    }
+
+    status = save_buffer(buffer);
+    if (status != EDITOR_STATUS_OK) {
+        editor_write(io, "SAVE FAILED\r\n");
+        return status;
+    }
+    editor_write(io, "SAVED\r\n");
+
+    basic_program_t program;
+    basic_init(&program);
+    esp_err_t err = basic_load_buffer(buffer->text, buffer->len, &program);
+    if (err == ESP_ERR_NO_MEM) {
+        editor_write(io, "Out of memory\r\n");
+        basic_clear(&program);
+        return EDITOR_STATUS_OUT_OF_MEMORY;
+    }
+    if (err != ESP_OK) {
+        editor_write(io, "BASIC load failed\r\n");
+        basic_clear(&program);
+        return EDITOR_STATUS_SAVE_FAILED;
+    }
+
+    editor_basic_io_t basic_ctx = {
+        .io = io,
+    };
+    basic_io_t basic_io = {
+        .read_line = basic_editor_read_line,
+        .write = basic_editor_write,
+        .service_exec = basic_editor_service_exec,
+        .ctx = &basic_ctx,
+    };
+
+    err = basic_debug(&program, &basic_io);
     basic_clear(&program);
     if (err != ESP_OK) {
         return EDITOR_STATUS_SAVE_FAILED;
@@ -510,7 +699,14 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
                 continue;
             }
         } else if (strcmp(line, ":debug") == 0) {
-            editor_write(io, "BASIC debug not implemented\r\n");
+            if (request->mode != EDITOR_MODE_BASIC) {
+                editor_write(io, "BASIC mode required\r\n");
+                continue;
+            }
+            status = debug_basic_buffer(io, request, buffer);
+            if (status != EDITOR_STATUS_OK) {
+                continue;
+            }
         } else if (line[0] == ':') {
             editor_write(io, "Unknown editor command\r\n");
         } else if (!append_line(buffer, line)) {

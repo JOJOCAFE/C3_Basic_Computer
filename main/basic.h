@@ -21,10 +21,12 @@ typedef struct {
 
 typedef int (*basic_read_line_fn)(void *ctx, char *buf, size_t len);
 typedef void (*basic_write_fn)(void *ctx, const char *text);
+typedef esp_err_t (*basic_service_exec_fn)(void *ctx, const char *command, bool hardware);
 
 typedef struct {
     basic_read_line_fn read_line;
     basic_write_fn write;
+    basic_service_exec_fn service_exec;
     void *ctx;
 } basic_io_t;
 
@@ -36,4 +38,5 @@ esp_err_t basic_load_buffer(const char *text, size_t len, basic_program_t *progr
 esp_err_t basic_load_file(const char *path, basic_program_t *program);
 esp_err_t basic_save_file(const char *path, const basic_program_t *program);
 esp_err_t basic_run(const basic_program_t *program, const basic_io_t *io);
+esp_err_t basic_debug(const basic_program_t *program, const basic_io_t *io);
 esp_err_t basic_execute_immediate(basic_program_t *program, const char *line, const basic_io_t *io);

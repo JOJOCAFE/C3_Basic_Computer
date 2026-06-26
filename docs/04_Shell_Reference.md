@@ -232,21 +232,30 @@ the BASIC editor launcher and edits `/basic/*.bas` files only. BASIC mode
 validates numbered BASIC lines before save. BASIC runtime behavior is invoked
 from nano commands, not from boot-shell immediate mode.
 
-Planned BASIC runtime editor commands:
+BASIC runtime editor commands:
 
 ```text
 :run    Save, validate, and run the open BASIC program
 :debug  Step-run the open BASIC program one statement at a time
 ```
 
-`:run` is implemented for numbered BASIC programs and uses a buffer-backed
-loader that can consume the full 64 KiB nano text buffer. `:debug` remains a
-planned step-run command. BASIC shell and
-hardware access must go through an explicit safe bridge. The first bridge allows
-only whitelisted query-style commands such as `PWD`, `LS`, `CAT`, and typed
-hardware reads. It must block destructive or protected commands such as `RENEW`,
-`RM`, `RM -R`, `WRITE`, `CP`, `MV`, and native execution. `ASM <path>` remains a
-planned shell front end to nano ASM mode.
+`:run` and `:debug` are implemented for numbered BASIC programs and use a
+buffer-backed loader that can consume the full 64 KiB nano text buffer.
+`:debug` is BASIC statement stepping, not CPU or native monitor stepping.
+
+The first BASIC runtime is intentionally tiny: numbered lines, integer
+expressions, single-letter variables, `REM`, `PRINT`, `LET`/assignment,
+`INPUT`, `IF THEN [ELSE]`, `GOTO`, `GOSUB`/`RETURN`, `FOR`/`NEXT`, `END`/`STOP`,
+and `ABS`, `INT`, `RND`. Extended graphics, sound, network, arrays, strings,
+and modern unnumbered BASIC are deferred.
+
+BASIC shell and hardware access must go through an explicit safe bridge. The
+current bridge allows `SHELL "PWD"`, `SHELL "CAT <file>"`, `HARDWARE "gpio read
+-p <pin>"`, and `HARDWARE "adc read -p <pin>"`. Directory listing from BASIC is
+deferred until it has a stack-safe adapter. The bridge blocks destructive or
+protected commands such as `RENEW`, `RM`, `RM -R`, `WRITE`, `CP`, `MV`, and
+native execution. `ASM <path>` remains a planned shell front end to nano ASM
+mode.
 
 Current editor limits:
 

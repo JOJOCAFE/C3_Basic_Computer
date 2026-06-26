@@ -2,7 +2,6 @@
 
 #include <ctype.h>
 #include <stdint.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,8 +30,6 @@ typedef struct {
 } for_frame_t;
 
 static basic_var_t g_vars[26];
-static const double BASIC_PI = 3.14159265358979323846;
-static const double BASIC_E = 2.71828182845904523536;
 
 static void write_str(const basic_io_t *io, const char *text)
 {
@@ -93,16 +90,6 @@ static void reset_vars(void)
 
 static int parse_expr(const char **s, const basic_io_t *io, bool *ok);
 
-static double deg_to_rad(double degrees)
-{
-    return degrees * BASIC_PI / 180.0;
-}
-
-static double rad_to_deg(double radians)
-{
-    return radians * 180.0 / BASIC_PI;
-}
-
 static bool parse_identifier(const char **s, char *name, size_t name_len)
 {
     size_t idx = 0;
@@ -157,7 +144,6 @@ static int parse_factor(const char **s, const basic_io_t *io, bool *ok)
             (*s)++;
             bool fn_ok = true;
             int a = 0;
-            int b = 0;
             if (strcmp(ident, "ABS") == 0) {
                 a = parse_expr(s, io, &fn_ok);
                 *s = skip_ws(*s);
@@ -171,181 +157,6 @@ static int parse_factor(const char **s, const basic_io_t *io, bool *ok)
                 if (**s != ')') fn_ok = false;
                 if (fn_ok) (*s)++;
                 return fn_ok ? a : (*ok = false, 0);
-            }
-            if (strcmp(ident, "ROUND") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                return fn_ok ? (int)lround((double)a) : (*ok = false, 0);
-            }
-            if (strcmp(ident, "SQRT") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                return fn_ok ? (int)lround(sqrt((double)a)) : (*ok = false, 0);
-            }
-            if (strcmp(ident, "SIN") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                return fn_ok ? (int)lround(sin(deg_to_rad((double)a))) : (*ok = false, 0);
-            }
-            if (strcmp(ident, "COS") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                return fn_ok ? (int)lround(cos(deg_to_rad((double)a))) : (*ok = false, 0);
-            }
-            if (strcmp(ident, "TAN") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                return fn_ok ? (int)lround(tan(deg_to_rad((double)a))) : (*ok = false, 0);
-            }
-            if (strcmp(ident, "ASIN") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                if (a < -1 || a > 1) {
-                    return 0;
-                }
-                return (int)lround(rad_to_deg(asin((double)a)));
-            }
-            if (strcmp(ident, "ACOS") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                if (a < -1 || a > 1) {
-                    return 0;
-                }
-                return (int)lround(rad_to_deg(acos((double)a)));
-            }
-            if (strcmp(ident, "ATAN") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                return (int)lround(rad_to_deg(atan((double)a)));
-            }
-            if (strcmp(ident, "ATAN2") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ',') {
-                    fn_ok = false;
-                } else {
-                    (*s)++;
-                    b = parse_expr(s, io, &fn_ok);
-                }
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                return (int)lround(rad_to_deg(atan2((double)a, (double)b)));
-            }
-            if (strcmp(ident, "LOG") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                if (a <= 0) {
-                    return 0;
-                }
-                return (int)lround(log((double)a));
-            }
-            if (strcmp(ident, "EXP") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                return (int)lround(exp((double)a));
-            }
-            if (strcmp(ident, "MIN") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ',') {
-                    fn_ok = false;
-                } else {
-                    (*s)++;
-                    b = parse_expr(s, io, &fn_ok);
-                }
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                return a < b ? a : b;
-            }
-            if (strcmp(ident, "MAX") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ',') {
-                    fn_ok = false;
-                } else {
-                    (*s)++;
-                    b = parse_expr(s, io, &fn_ok);
-                }
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                return a > b ? a : b;
-            }
-            if (strcmp(ident, "RAD") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                return (int)lround(deg_to_rad((double)a));
-            }
-            if (strcmp(ident, "DEG") == 0) {
-                a = parse_expr(s, io, &fn_ok);
-                *s = skip_ws(*s);
-                if (**s != ')') fn_ok = false;
-                if (fn_ok) (*s)++;
-                if (!fn_ok) {
-                    *ok = false;
-                    return 0;
-                }
-                return (int)lround(rad_to_deg((double)a));
             }
             if (strcmp(ident, "RND") == 0) {
                 if (**s != ')') {
@@ -368,12 +179,6 @@ static int parse_factor(const char **s, const basic_io_t *io, bool *ok)
             return 0;
         }
 
-        if (strcmp(ident, "PI") == 0) {
-            return (int)lround(BASIC_PI);
-        }
-        if (strcmp(ident, "E") == 0) {
-            return (int)lround(BASIC_E);
-        }
         if (strlen(ident) == 1) {
             return get_var(ident[0]);
         }
@@ -764,6 +569,55 @@ static void print_prompt_var(const basic_io_t *io, const char *name)
     write_str(io, msg);
 }
 
+static bool parse_quoted_string(const char **s, char *out, size_t out_len)
+{
+    if (!s || !*s || !out || out_len == 0) {
+        return false;
+    }
+
+    const char *cursor = skip_ws(*s);
+    if (*cursor != '"') {
+        return false;
+    }
+    cursor++;
+
+    size_t idx = 0;
+    while (*cursor && *cursor != '"') {
+        if (idx + 1 >= out_len) {
+            return false;
+        }
+        out[idx++] = *cursor++;
+    }
+
+    if (*cursor != '"') {
+        return false;
+    }
+    cursor++;
+    cursor = skip_ws(cursor);
+    if (*cursor != '\0') {
+        return false;
+    }
+
+    out[idx] = '\0';
+    *s = cursor;
+    return true;
+}
+
+static esp_err_t execute_service_statement(const basic_io_t *io, const char *cursor, bool hardware)
+{
+    if (!io || !io->service_exec) {
+        write_ln(io, hardware ? "HARDWARE service unavailable" : "SHELL service unavailable");
+        return ESP_FAIL;
+    }
+
+    char command[160];
+    if (!parse_quoted_string(&cursor, command, sizeof(command))) {
+        return ESP_FAIL;
+    }
+
+    return io->service_exec(io->ctx, command, hardware);
+}
+
 static esp_err_t execute_line(const basic_program_t *program, int *pc, const basic_io_t *io,
                               gosub_frame_t *gosub_stack, int *gosub_sp, for_frame_t *for_stack, int *for_sp)
 {
@@ -812,10 +666,19 @@ static esp_err_t execute_line(const basic_program_t *program, int *pc, const bas
         return ESP_OK;
     }
 
+    if (parse_keyword(&cursor, "SHELL")) {
+        return execute_service_statement(io, cursor, false);
+    }
+
+    if (parse_keyword(&cursor, "HARDWARE")) {
+        return execute_service_statement(io, cursor, true);
+    }
+
     if (parse_keyword(&cursor, "LET")) {
         cursor = skip_ws(cursor);
     }
 
+    const char *assignment_cursor = cursor;
     if (isalpha((unsigned char)*cursor)) {
         char var = *cursor++;
         cursor = skip_ws(cursor);
@@ -829,6 +692,7 @@ static esp_err_t execute_line(const basic_program_t *program, int *pc, const bas
             set_var(var, value);
             return ESP_OK;
         }
+        cursor = assignment_cursor;
     }
 
     if (parse_keyword(&cursor, "INPUT")) {
@@ -1014,7 +878,37 @@ static esp_err_t execute_line(const basic_program_t *program, int *pc, const bas
         return ESP_ERR_NOT_FOUND;
     }
 
+    if (parse_keyword(&cursor, "STOP")) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
     return ESP_FAIL;
+}
+
+static void basic_write_vars(const basic_io_t *io)
+{
+    bool any = false;
+    for (size_t i = 0; i < sizeof(g_vars) / sizeof(g_vars[0]); ++i) {
+        if (!g_vars[i].used) {
+            continue;
+        }
+        char msg[32];
+        snprintf(msg, sizeof(msg), "%c=%d ", g_vars[i].name, g_vars[i].value);
+        write_str(io, msg);
+        any = true;
+    }
+    write_ln(io, any ? "" : "No variables");
+}
+
+static void basic_write_debug_line(const basic_program_t *program, int pc, const basic_io_t *io)
+{
+    if (!program || pc < 0 || pc >= (int)program->count) {
+        return;
+    }
+    char msg[48];
+    snprintf(msg, sizeof(msg), "DBG %d ", program->lines[pc].number);
+    write_str(io, msg);
+    write_ln(io, program->lines[pc].text ? program->lines[pc].text : "");
 }
 
 esp_err_t basic_run(const basic_program_t *program, const basic_io_t *io)
@@ -1044,6 +938,74 @@ esp_err_t basic_run(const basic_program_t *program, const basic_io_t *io)
         }
     }
 
+    return ESP_OK;
+}
+
+esp_err_t basic_debug(const basic_program_t *program, const basic_io_t *io)
+{
+    if (!program || !io) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (program->count == 0) {
+        write_ln(io, "No BASIC program loaded.");
+        return ESP_OK;
+    }
+
+    gosub_frame_t gosub_stack[BASIC_STACK_DEPTH] = {0};
+    for_frame_t for_stack[BASIC_FOR_DEPTH] = {0};
+    int gosub_sp = 0;
+    int for_sp = 0;
+    bool continuous = false;
+
+    write_ln(io, "DEBUG");
+    write_ln(io, "Enter/s step, c continue, p vars, l line, q quit");
+
+    for (int pc = 0; pc < (int)program->count; ++pc) {
+        if (!continuous) {
+            while (true) {
+                write_str(io, "debug> ");
+                char command[16];
+                if (!read_user_line(io, command, sizeof(command))) {
+                    return ESP_FAIL;
+                }
+                const char *choice = skip_ws(command);
+                if (*choice == '\0' || strcasecmp(choice, "s") == 0) {
+                    break;
+                }
+                if (strcasecmp(choice, "c") == 0) {
+                    continuous = true;
+                    break;
+                }
+                if (strcasecmp(choice, "q") == 0) {
+                    write_ln(io, "DEBUG QUIT");
+                    return ESP_OK;
+                }
+                if (strcasecmp(choice, "p") == 0) {
+                    basic_write_vars(io);
+                    continue;
+                }
+                if (strcasecmp(choice, "l") == 0) {
+                    basic_write_debug_line(program, pc, io);
+                    continue;
+                }
+                write_ln(io, "Use Enter/s/c/p/l/q");
+            }
+        }
+
+        basic_write_debug_line(program, pc, io);
+        esp_err_t err = execute_line(program, &pc, io, gosub_stack, &gosub_sp, for_stack, &for_sp);
+        if (err == ESP_ERR_NOT_FOUND) {
+            write_ln(io, "DEBUG END");
+            return ESP_OK;
+        }
+        if (err != ESP_OK) {
+            write_ln(io, "BASIC ERROR");
+            return err;
+        }
+    }
+
+    write_ln(io, "DEBUG END");
     return ESP_OK;
 }
 

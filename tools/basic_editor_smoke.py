@@ -13,6 +13,7 @@ import serial
 
 PROMPT = b"> "
 EDITOR_PROMPTS = (b"edit> ", b"edit* ")
+DEBUG_PROMPTS = (b"debug> ",)
 
 
 @dataclasses.dataclass
@@ -86,7 +87,7 @@ class ShellSession:
             if index == len(lines) - 1 and line in (":q", ":q!", ":wq"):
                 raw_parts.append(self._read_until_suffix((PROMPT,), timeout))
             else:
-                chunk = self._read_until_suffix(EDITOR_PROMPTS + (PROMPT,), timeout)
+                chunk = self._read_until_suffix(EDITOR_PROMPTS + DEBUG_PROMPTS + (PROMPT,), timeout)
                 raw_parts.append(chunk)
                 if self.is_shell_prompt(chunk):
                     break
@@ -114,6 +115,9 @@ def main(argv: list[str]) -> int:
     token = f"BASIC_{time.time_ns()}"
     path = f"/basic/{token}.bas"
     bad_path = f"/basic/{token}_bad.bas"
+    debug_path = f"/basic/{token}_debug.bas"
+    bridge_path = f"/basic/{token}_bridge.bas"
+    blocked_path = f"/basic/{token}_blocked.bas"
     large_path = f"/basic/{token}_large.bas"
     txt_path = f"/data/{token}.txt"
     large_program = [f"{10 + i * 10} REM line {i:03d} " + ("X" * 160) for i in range(90)]
@@ -149,6 +153,56 @@ def main(argv: list[str]) -> int:
         require("LARGE BASIC OK" in result.raw, "large BASIC program did not run")
         require(result.raw.endswith("> "), "large BASIC run did not return through editor to shell")
 
+        debug_program = [
+            "10 LET A=1",
+            "20 PRINT \"DBG OK\"",
+            "30 A=A+1",
+            "40 END",
+            ":debug",
+            "s",
+            "p",
+            "l",
+            "s",
+            "c",
+            ":q",
+        ]
+        result = session.edit("BASIC", debug_path, debug_program, args.timeout)
+        print_block("BASIC debug", result.raw)
+        require("DEBUG" in result.raw, "debug mode did not start")
+        require("DBG 10 LET A=1" in result.raw, "debug did not show first line")
+        require("A=1" in result.raw, "debug variable print missing A=1")
+        require("DBG 20 PRINT \"DBG OK\"" in result.raw, "debug list/step missing line 20")
+        require("DBG OK" in result.raw, "debug did not execute PRINT")
+        require("DEBUG END" in result.raw, "debug did not finish")
+        require(result.raw.endswith("> "), "debug did not return through editor to shell")
+
+        bridge_program = [
+            "10 SHELL \"PWD\"",
+            "20 HARDWARE \"gpio read -p 8\"",
+            "30 PRINT \"BRIDGE OK\"",
+            "40 END",
+            ":run",
+            ":q",
+        ]
+        result = session.edit("BASIC", bridge_path, bridge_program, args.timeout)
+        print_block("BASIC bridge", result.raw)
+        require("BRIDGE OK" in result.raw, "bridge program did not complete")
+        require("\r\n/\r\n" in result.raw or "\n/\r\n" in result.raw or "\n/\n" in result.raw,
+                "SHELL PWD bridge did not print current workspace path")
+        require("GPIO8 READ" in result.raw, "HARDWARE gpio read bridge did not run")
+
+        blocked_program = [
+            "10 SHELL \"RM /basic/not_allowed.bas\"",
+            "20 PRINT \"SHOULD NOT PRINT\"",
+            "30 END",
+            ":run",
+            ":q!",
+        ]
+        result = session.edit("BASIC", blocked_path, blocked_program, args.timeout)
+        print_block("BASIC blocked shell", result.raw)
+        require("BASIC shell command blocked" in result.raw, "destructive SHELL command was not blocked")
+        require("BASIC ERROR" in result.raw, "blocked SHELL command did not stop BASIC")
+
         result = session.edit("BASIC", bad_path, ["123ABC", ":w", ":p", ":q!"], args.timeout)
         print_block("BASIC invalid save", result.raw)
         require("BASIC validation failed line 1" in result.raw, "invalid BASIC line was not rejected")
@@ -173,6 +227,9 @@ def main(argv: list[str]) -> int:
 
         session.command(f"RM {path}", args.timeout)
         session.command(f"RM {large_path}", args.timeout)
+        session.command(f"RM {debug_path}", args.timeout)
+        session.command(f"RM {bridge_path}", args.timeout)
+        session.command(f"RM {blocked_path}", args.timeout)
         print(f"PASS: BASIC nano mode validation smoke test for {path}")
         return 0
     finally:

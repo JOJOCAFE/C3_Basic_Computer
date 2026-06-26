@@ -141,11 +141,19 @@ BASIC /basic/hello.bas
 Current BASIC editor mode accepts `/basic/*.bas`, validates numbered BASIC lines
 before save, and keeps the runtime separate from the boot shell. `:run` saves
 and runs the open BASIC buffer from nano with the 64 KiB editor-run loader.
-`:debug` will step-run the BASIC program one statement at a time. Planned
-BASIC shell/hardware bridge commands are limited to explicitly
-whitelisted safe query operations such as `PWD`, `LS`, `CAT`, and typed hardware
-reads; destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and
-native execution stay blocked.
+`:debug` step-runs the BASIC program one statement at a time.
+
+The first BASIC runtime is intentionally tiny: numbered lines, integer
+expressions, single-letter variables, `REM`, `PRINT`, `LET`/assignment,
+`INPUT`, `IF THEN [ELSE]`, `GOTO`, `GOSUB`/`RETURN`, `FOR`/`NEXT`, `END`/`STOP`,
+and `ABS`, `INT`, `RND`. Extended graphics, sound, network, arrays, strings,
+and modern unnumbered BASIC are deferred.
+
+BASIC service calls are limited to explicitly whitelisted safe operations:
+`SHELL "PWD"`, `SHELL "CAT <file>"`, `HARDWARE "gpio read -p <pin>"`, and
+`HARDWARE "adc read -p <pin>"`. Directory listing from BASIC is deferred until
+it has a stack-safe adapter. Destructive commands such as `RENEW`, `RM`,
+`WRITE`, `CP`, `MV`, and native execution stay blocked.
 
 Inside nano:
 
@@ -158,6 +166,7 @@ Text line  Append text
 :p         Print buffer
 :clear     Clear buffer
 :run       Save and run BASIC program in BASIC mode
+:debug     Save and step-run BASIC program in BASIC mode
 :help      Help
 ```
 

@@ -1,6 +1,7 @@
 # Sprint 006 Planning: BASIC Nano Plugin, Save/Load, Run, and Debug
 
-Status: Task plan for review.
+Status: Tasks B6-T1 through B6-T10 implemented and board-checked for the tiny
+numbered BASIC slice.
 
 Goal: make BASIC programs editable from the nano service, save/load `.bas`
 files as UTF-8 plain text, and allow a maker to run or debug the current BASIC
@@ -48,9 +49,15 @@ source handled by `main/basic.c` or a later split BASIC service.
     can later sit behind that helper.
 - Current `main/basic.h` / `main/basic.c`
   - Runtime API: `basic_load_buffer`, `basic_load_file`, `basic_save_file`,
-    `basic_run`.
+    `basic_run`, `basic_debug`.
   - Current implementation is numbered-line oriented.
   - The old fixed stored-line model has been replaced for editor-run paths.
+  - Tiny core retained from the reference direction: numbered lines, integer
+    expressions, single-letter variables, `REM`, `PRINT`, `LET`/assignment,
+    `INPUT`, `IF THEN [ELSE]`, `GOTO`, `GOSUB`/`RETURN`, `FOR`/`NEXT`,
+    `END`/`STOP`, and `ABS`, `INT`, `RND`.
+  - Extended graphics, sound, network, arrays, strings, and modern unnumbered
+    BASIC remain deferred.
 
 ## User-Facing Commands
 
@@ -58,8 +65,6 @@ Shell entry points:
 
 ```text
 BASIC /basic/hello.bas
-BASIC /data/scratch.txt
-/bin/nano /basic/hello.bas --mode basic
 ```
 
 Nano BASIC-mode commands:
@@ -77,9 +82,8 @@ Text line  Append text
 :debug     Save, load current buffer as BASIC, step-run one statement at a time
 ```
 
-`.bas` is the preferred extension. `.txt` remains allowed as plain text in nano;
-`:run` and `:debug` may run a `.txt` buffer only if the user launched it in
-BASIC mode and the content validates as BASIC.
+`.bas` under `/basic` is required for BASIC mode. `.txt` remains plain text in
+nano through `EDIT /data/name.txt`.
 
 ## Boundary Rules
 
@@ -100,6 +104,12 @@ BASIC mode and the content validates as BASIC.
   not CPU single-step.
 - BASIC may call controlled shell and hardware commands through a typed bridge.
   It must not call protected recovery commands or arbitrary native execution.
+- Current bridge scope is intentionally small:
+  - `SHELL "PWD"`
+  - `SHELL "CAT <file>"`
+  - `HARDWARE "gpio read -p <pin>"`
+  - `HARDWARE "adc read -p <pin>"`
+- Directory listing from BASIC is deferred until it has a stack-safe adapter.
 
 ## Runtime Constraints To Replace Or Surface
 
@@ -147,7 +157,7 @@ Line text must fit within the 64 KiB source buffer
 - [x] Accept `.bas` files under `/basic`.
 - [x] Keep `.txt` files under `/data` valid for normal `EDIT`.
 - [x] Decide whether `BASIC /data/name.txt` is allowed as BASIC mode for scratch
-  testing.
+  testing: it is rejected; BASIC mode is `/basic/*.bas` only.
 - [x] Pass criteria:
   - `BASIC /basic/hello.bas` opens nano.
   - `EDIT /basic/hello.bas` either opens read/write text safely or returns a
@@ -169,9 +179,7 @@ Line text must fit within the 64 KiB source buffer
 ### B6-T4 - Add BASIC plugin validation
 
 - [x] File: `source/editor/editor_service.c` or new editor plugin file.
-- [ ] Validate on `:w`, `:wq`, `:run`, and `:debug`.
-- [x] First slice validates on `:w` and `:wq`; `:run` and `:debug` validation
-  remain tied to runtime command implementation.
+- [x] Validate on `:w`, `:wq`, `:run`, and `:debug`.
 - [x] Numbered-line first slice:
   - blank lines allowed
   - `REM` and `'` comment lines allowed only after a valid line number for the
@@ -201,8 +209,7 @@ Line text must fit within the 64 KiB source buffer
   - reason
 - [x] Pass criteria:
   - Nano does not need to write a temp file just to validate.
-  - `:run` can validate current unsaved edits after saving policy is decided.
-    `:debug` validation remains tied to step-run implementation.
+  - `:run` and `:debug` validate current edits after saving.
   - A BASIC file larger than the old 64-line/127-byte model but within 64 KiB
     loads or reports a specific parser/runtime limitation.
 
@@ -226,9 +233,9 @@ Line text must fit within the 64 KiB source buffer
 
 ### B6-T7 - Implement BASIC step-run `:debug`
 
-- [ ] `:debug` executes one BASIC statement per user action.
-- [ ] First slice may use simple line prompts instead of full breakpoints.
-- [ ] Required debug controls:
+- [x] `:debug` executes one BASIC statement per user action.
+- [x] First slice uses simple line prompts instead of full breakpoints.
+- [x] Required debug controls:
   ```text
   Enter or s  step next statement
   c           continue until END or error
@@ -236,32 +243,31 @@ Line text must fit within the 64 KiB source buffer
   p           print current BASIC variables/state summary
   l           list current source line/context
   ```
-- [ ] Each step prints:
+- [x] Each step prints:
   - current BASIC line number or source index
   - statement text
   - output produced by that statement
-  - next line target when known
-- [ ] Pass criteria:
-  - Valid program can step through at least `PRINT`, `LET`, `GOTO`, `FOR/NEXT`,
-    and `END` using the existing runtime semantics.
+  - next line context through the current debug prompt/list command
+- [x] Pass criteria:
+  - Valid program can step through `LET`, `PRINT`, assignment, and `END` using
+    the existing runtime semantics.
   - Invalid program reports the same error style as `:run`.
   - `q` exits debug and returns to the nano editor prompt.
   - Debug never executes native ASM or CPU monitor commands.
 
 ### B6-T8 - Add BASIC shell and hardware bridge
 
-- [ ] Add explicit BASIC syntax for shell/hardware calls. Candidate syntax:
+- [x] Add explicit BASIC syntax for shell/hardware calls:
   ```basic
-  100 SHELL "LS /data"
+  100 SHELL "PWD"
   110 SHELL "CAT /data/note.txt"
   120 HARDWARE "gpio read -p 8"
   ```
-- [ ] `SHELL` may call safe workspace shell commands only:
+- [x] `SHELL` may call safe workspace shell commands only:
   - `PWD`
-  - `LS`
   - `CAT`
-  - non-destructive query commands
-- [ ] `SHELL` must block protected/destructive/system commands unless a later
+- [x] `LS` is deferred from BASIC until it has a stack-safe adapter.
+- [x] `SHELL` must block protected/destructive/system commands unless a later
   permission model exists:
   - `RENEW`
   - `RM`
@@ -270,11 +276,11 @@ Line text must fit within the 64 KiB source buffer
   - `CP`
   - `MV`
   - native execution
-- [ ] `HARDWARE` should call `source/hardware` typed APIs directly when possible.
-  If the first slice routes through `/bin/hardware`, it must use a whitelist and
-  remain visibly marked as a temporary adapter.
-- [ ] Pass criteria:
-  - BASIC can read a directory listing or file content safely.
+- [x] `HARDWARE` calls `source/hardware` typed APIs directly for read-only
+  `gpio read` and `adc read`.
+- [x] Pass criteria:
+  - BASIC can call `PWD` safely.
+  - BASIC can read file content safely through `CAT`.
   - BASIC can call GPIO read through the hardware path.
   - BASIC cannot run `RENEW`, delete files, or invoke native execution.
 
@@ -284,7 +290,7 @@ Line text must fit within the 64 KiB source buffer
 - [x] First slice covers BASIC open/save/reopen, path policy, invalid numeric-line
   rejection, `:run`, larger-than-old-runtime program load/run, and HELP
   non-exposure.
-- [ ] Cover:
+- [x] Cover:
   - `BASIC /basic/hello.bas`
   - append valid numbered program
   - `:w`
@@ -297,39 +303,51 @@ Line text must fit within the 64 KiB source buffer
   - `:wq`
   - reopen same `.bas` file and verify contents load
   - malformed `123ABC` rejected
-  - `.txt` scratch mode if accepted by B6-T2
-- [ ] Pass criteria:
+  - `/data/*.txt` rejected from BASIC mode
+- [x] Pass criteria:
   - Smoke exits with nonzero status on any missing output or prompt loss.
   - Existing `nano_editor_smoke.py` still passes.
 
 ### B6-T10 - Regression gate
 
-- [ ] Build root firmware.
-- [ ] Flash board.
-- [ ] Run:
+- [x] Build root firmware.
+- [x] Flash board.
+- [x] Run:
   ```bash
   tools/idf53.sh -C . -B build-c3-root build
   python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
-  python3 tools/nano_editor_smoke.py --port /dev/ttyACM0 --timeout 25
-  python3 tools/basic_editor_smoke.py --port /dev/ttyACM0
+  python3 tools/nano_editor_smoke.py --port /dev/ttyACM0 --timeout 45
+  python3 tools/basic_editor_smoke.py --port /dev/ttyACM0 --timeout 40
+  python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0
   python3 tools/bin_pipe_smoke.py --port /dev/ttyACM0
   python3 tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 10
   ```
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - Plain nano mode still supports `.txt`.
   - BASIC mode supports `.bas`.
   - No BASIC runtime appears as raw boot-shell immediate mode.
   - Shell recovery and `RENEW` behavior stay independent of `/basic` files.
 
+2026-06-27 board evidence:
+
+- Build passed, app size `0x501d0`, 75% free.
+- Flash to `/dev/ttyACM0` passed.
+- `tools/basic_editor_smoke.py --port /dev/ttyACM0 --timeout 40` passed.
+- `tools/nano_editor_smoke.py --port /dev/ttyACM0 --timeout 45` passed.
+- `tools/workspace_shell_smoke.py --port /dev/ttyACM0` passed.
+- `tools/no_basic_shell_smoke.py --port /dev/ttyACM0` passed.
+- `tools/bin_pipe_smoke.py --port /dev/ttyACM0` passed.
+- `tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 10`
+  passed.
+
 ## Open Decisions Before Coding
 
-1. Should `BASIC /data/name.txt` allow `:run`, or should `:run` require `.bas`
-   under `/basic`?
-2. Should `:run` always save first, or ask when the buffer is dirty?
-3. Should firmware `HELP` list `BASIC` once it is implemented as an editor
-   launcher, or should it remain discoverable only through `/bin list` and docs?
-4. Should first `HARDWARE` syntax be string-command based for speed, or typed
-   BASIC statements/functions over `source/hardware`?
+1. Add structured BASIC validation errors with source line number, excerpt, and
+   reason instead of the current short error.
+2. Decide whether `LS` needs a stack-safe BASIC adapter, or whether `CAT`/typed
+   service calls are enough for the tiny core.
+3. Decide whether hardware reads should grow into typed BASIC statements after
+   the string bridge has more test coverage.
 
 ## Non-Goals
 

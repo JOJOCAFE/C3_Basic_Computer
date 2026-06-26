@@ -54,10 +54,12 @@ BASIC /basic/hello.bas
 BASIC mode accepts `/basic/*.bas`, validates numbered BASIC lines before save,
 and keeps BASIC runtime commands inside the editor session. `:run` saves and
 runs the current numbered BASIC buffer using the full 64 KiB nano text buffer.
-`:debug` remains planned for step-run. Future BASIC shell/hardware calls must use a safe
-whitelist for query operations such as `PWD`, `LS`, `CAT`, and typed hardware
-reads, while blocking destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`,
-`MV`, and native execution.
+`:debug` saves and step-runs the current numbered BASIC buffer. BASIC
+shell/hardware calls use a safe whitelist: `SHELL "PWD"`, `SHELL "CAT <file>"`,
+`HARDWARE "gpio read -p <pin>"`, and `HARDWARE "adc read -p <pin>"`.
+Directory listing from BASIC is deferred until it has a stack-safe adapter.
+Destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and native
+execution stay blocked.
 
 Supported editor commands:
 
@@ -70,6 +72,7 @@ Text line  Append text
 :p         Print buffer
 :clear     Clear buffer
 :run       Save and run BASIC program in BASIC mode
+:debug     Save and step-run BASIC program in BASIC mode
 :help      Help
 ```
 
