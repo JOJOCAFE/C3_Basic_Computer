@@ -83,8 +83,8 @@ Current implementation:
 * `source/hardware` provides reusable GPIO, ADC, I2C and SPI C APIs.
 * `source/bin` exposes terminal adapters under `/bin/hardware`.
 * `source/shell` stays lean and does not contain hardware code.
-* BASIC hardware calls are deferred and should call the same hardware service
-  API when implemented.
+* BASIC GPIO/ADC statements call the same hardware service API through
+  `main/basic_hardware.*`.
 
 ---
 

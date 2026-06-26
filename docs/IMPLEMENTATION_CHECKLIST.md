@@ -8,7 +8,8 @@ Use it as the execution plan so milestones remain auditable.
 - [x] `main/main.c` boots and calls `shell_run()`.
 - [x] `main/storage.c` mounts split LittleFS partitions (`system_fs`, `workspace_fs`) and creates canonical workspace directories.
 - [x] `source/shell/shell.c` offers micro Linux workspace commands: `HELP`, `PWD`, `LS`, `CD`, `MKDIR`, `RMDIR`, `CAT`, `WRITE`, `RM`, `RM -R`, `CP`, `MV`, plus protected `RENEW`.
-- [x] `main/basic.c` supports Phase 1 BASIC statements/functions.
+- [x] `main/basic.c` supports tiny numbered BASIC, `:run`, `:debug`, and typed
+  GPIO/ADC hardware functions/statements through `main/basic_hardware.*`.
 - [x] `source/hardware` provides reusable GPIO, ADC, I2C, and SPI C service APIs.
 - [x] `source/bin` exposes `/bin/hardware` terminal adapters for GPIO, ADC, I2C, and SPI.
 - [x] `source/bin` has a `/bin` service registry with `/bin list`, `/bin/hardware`, and `/bin/nano`.
@@ -35,7 +36,8 @@ Rules:
 - `source/hardware` owns GPIO, ADC, I2C, and SPI C APIs.
 - `source/bin` owns terminal-facing command adapters such as `/bin/hardware`.
 - `source/shell` remains standalone and does not link hardware/bin code.
-- BASIC GPIO is deferred; when implemented, it should call `source/hardware`.
+- BASIC GPIO/ADC is implemented through `main/basic_hardware.*` and calls
+  `source/hardware` directly.
 - GPIO18/GPIO19 remain protected by default because they carry USB Serial/JTAG.
 
 | File/Folder | Task | Acceptance Criteria |
@@ -71,8 +73,8 @@ C3 adaptation rules:
 - `FORMAT`, `BOOT`, `RAMBOOT`, `XIP`, `PXE`, OTA, and native payload execution stay out
 - existing `HELP`, `PWD`, `LS`, `CD`, `MKDIR`, `RMDIR`, `CAT`, `WRITE`, `RM`,
   `RM -R`, `CP`, `MV`, and `RENEW` behavior must keep passing smoke tests
-- BASIC commands must not be exposed by the boot shell until a separate BASIC
-  runtime/editor entry point is designed
+- BASIC immediate statements must not be exposed by the boot shell; BASIC runs
+  through nano BASIC mode with `:run` and `:debug`
 
 ### 2.1 Shell command baseline
 

@@ -61,6 +61,16 @@ Directory listing from BASIC is deferred until it has a stack-safe adapter.
 Destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and native
 execution stay blocked.
 
+Preferred BASIC hardware access is typed and bypasses `/bin/hardware`:
+
+```basic
+10 PINMODE 8, OUTPUT
+20 DWRITE 8, HIGH
+30 PRINT DREAD(8)
+40 PRINT AREAD(0)
+50 END
+```
+
 Supported editor commands:
 
 ```text
@@ -126,9 +136,9 @@ Protected pins: GPIO18 and GPIO19
 GPIO18 and GPIO19 stay protected by the hardware package because they carry USB
 Serial/JTAG on common ESP32-C3 boards.
 
-The service calls the reusable C APIs in `source/hardware`. Future BASIC or
-monitor runtimes should call those same APIs directly or use the shell command
-API when a text command path is appropriate.
+The service calls the reusable C APIs in `source/hardware`. BASIC hardware
+statements also call `source/hardware` directly through `main/basic_hardware.*`;
+they do not invoke `/bin/hardware` text commands.
 
 Root firmware build:
 

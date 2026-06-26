@@ -112,12 +112,13 @@ Not exposed by the boot shell: `DIR`, `COPY`, `MOVE`, `RENAME`, `DELETE`,
 `PRINT`.
 
 Later workspace/system/monitor targets:
-`BASIC`, `ASM`, `VERSION`, `MEMORY`, `DATE`, `TIME`, `DIAGNOSTICS`,
-`REG`, `MEM`, `DUMP`, `DISASM`, `STEP`, `BREAK`
+`ASM`, `VERSION`, `MEMORY`, `DATE`, `TIME`, `DIAGNOSTICS`, `REG`, `MEM`,
+`DUMP`, `DISASM`, `STEP`, `BREAK`
 
 `EDIT <path>` is the text editor command backed by `/bin/nano`.
-Future `BASIC <path>` and `ASM <path>` commands should dispatch to the same
-editor service with the BASIC or ASM plugin selected.
+`BASIC <path>` dispatches to the same editor service with the BASIC plugin
+selected. Future `ASM <path>` should dispatch to nano with the ASM plugin
+selected.
 Linked services can be listed with `/bin list`.
 
 Only implemented commands should appear in firmware `HELP`.
@@ -235,46 +236,51 @@ Completed high-priority implementation plan:
 
 [`docs/SPRINT_002_TASK_LIST.md`](/home/jo/Codex/C3_Basic_Computer/docs/SPRINT_002_TASK_LIST.md)
 
-## Implementation plan (recommended next steps)
+## Current implementation status
 
-Sprint 002 shell-first work is complete. Resume in the order below.
+Completed and board-checked:
 
-1. **Completed - micro Linux workspace shell**
-   - `HELP`, `PWD`, `CD`, `LS`, `MKDIR`, `RMDIR`, `CAT`, `WRITE`, `RM`,
-     `RM -R`, `CP`, `MV`, and `RENEW` are implemented.
-   - Keep all file commands constrained to `/workspace`.
-   - Keep BASIC commands out of the boot shell until a separate BASIC runtime
-     entry point is designed.
-   - Keep `FORMAT`, `BOOT`, `RAMBOOT`, `XIP`, `PXE`, and OTA out of this sprint.
+1. **Micro Linux workspace shell**
+   - `HELP`, `PWD`, `LS`, `CD`, `MKDIR`, `RMDIR`, `CAT`, `WRITE`, `RM`,
+     `RM -R`, `CP`, `MV`, and protected `RENEW`.
+   - File commands stay constrained to `/workspace`.
+   - BASIC immediate statements remain outside the boot shell.
 
-2. **Completed – Input boundary**
-   - PC terminal over USB Serial/JTAG is the active backend.
+2. **Input boundary**
+   - USB Serial/JTAG is the active tested backend.
    - Shell input is behind an input service.
-   - BLE HID keyboard backend boundary exists; real pairing waits for a keyboard.
+   - BLE HID keyboard backend code exists; real pairing still needs hardware.
 
-3. **In progress - nano text editor service**
-   - Lean nano-style `/bin/nano` editor service with `EDIT <path>` as the shell
-     command, documented in
-   [`docs/SPRINT_004_NANO_EDITOR_SERVICE.md`](docs/SPRINT_004_NANO_EDITOR_SERVICE.md).
-   - First implementation target is `/data/*.txt` only.
-   - Later, `BASIC <path>` and `ASM <path>` should call nano with removable
-     language plugins/services so the boot shell stays small.
+3. **Nano editor and BASIC mode**
+   - `EDIT /data/name.txt` and `/bin/nano /data/name.txt` edit text.
+   - `BASIC /basic/name.bas` opens nano in BASIC mode.
+   - `:run` and `:debug` run or step the current numbered BASIC buffer.
+   - Editor and BASIC source buffers use the 64 KiB nano buffer.
 
-4. **Next candidate - `/bin` service ABI and pipes**
-   - Current `/bin` services use a registry and build-time selection.
-   - Stream ABI and `|` pipes are planned in
-     [`docs/SPRINT_005_BIN_SERVICE_ABI_AND_PIPES.md`](docs/SPRINT_005_BIN_SERVICE_ABI_AND_PIPES.md).
+4. **BASIC runtime first slice**
+   - Numbered-line tiny BASIC with integer expressions, single-letter variables,
+     core control flow, and structured validation errors.
+   - Safe BASIC service calls: `SHELL "PWD"`, `SHELL "CAT <file>"`,
+     `HARDWARE "gpio read -p <pin>"`, and `HARDWARE "adc read -p <pin>"`.
+   - Typed BASIC GPIO/ADC commands call `source/hardware` directly.
 
-5. **Later - ASM capture boundary**
-   - Parse and capture `ASM`/`ENDASM` blocks from BASIC safely.
-   - Keep assembly source separate from BASIC source storage.
-   - Validate assembler input before any execution work.
+5. **Hardware services**
+   - `source/hardware` provides GPIO/ADC/I2C/SPI C APIs.
+   - `/bin/hardware` exposes terminal GPIO/ADC/I2C/SPI clients.
+   - BASIC has a typed GPIO/ADC adapter over the same service layer.
 
-6. **Later - Runtime, monitor, and capability expansion**
-   - Add `CALLASM()`, standalone `.asm` execution, and monitor commands only after
-     capture/validation passes.
-   - Add graphics, sound, BASIC GPIO/motion, then standalone UX hardware
-     integrations as separate milestones.
+6. **`/bin` registry and RAM pipes**
+   - `/bin list`, `/bin/nano`, `/bin/hardware`, and a first RAM-backed pipe path
+     are implemented.
+
+Recommended next implementation:
+
+1. Add ASM nano mode: `ASM /asm/name.asm` should edit and validate text only.
+2. Resume ASM capture as a non-execution milestone.
+3. Keep native execution blocked until assembler validation and runtime
+   guardrails exist.
+4. Add system/monitor commands only after their behavior is documented and
+   testable.
 
 ## UX and behavior goals
 

@@ -2,7 +2,7 @@
 
 # 05 File System
 
-Status: Draft
+Status: Current implementation plus design goals
 
 ---
 
@@ -26,7 +26,8 @@ It is designed to be simple, predictable and recoverable.
 
 ## Storage Layout
 
-The storage is divided into two logical areas.
+The design model divides storage into protected system files and maker
+workspace files.
 
 ```text
 +------------------------------+
@@ -36,7 +37,7 @@ The storage is divided into two logical areas.
 | Runtime                      |
 | Shell                        |
 | BASIC                        |
-| ASM Engine                   |
+| ASM Engine (future)          |
 | System Libraries             |
 +------------------------------+
 | Workspace                    |
@@ -62,7 +63,7 @@ Examples
 * Runtime
 * Shell
 * BASIC Interpreter
-* Native ASM Engine
+* Native ASM Engine (future)
 * System Libraries
 
 The System is updated only through the firmware update process.
@@ -73,7 +74,7 @@ The System is updated only through the firmware update process.
 
 The Workspace contains everything created by the maker.
 
-Examples
+Current firmware workspace directories
 
 ```text
 /basic
@@ -83,6 +84,10 @@ Examples
 /data
 /temp
 ```
+
+Compatibility aliases may also expose uppercase paths such as `/BASIC`, `/DATA`,
+and `/TEMP`. ASM and config workflows are design goals, but their workspace
+directories are already part of the standard layout.
 
 The Workspace is fully writable.
 
@@ -125,6 +130,8 @@ External storage is optional.
 
 ## Directory Structure
 
+Current firmware directory set
+
 ```text
 /
 
@@ -142,17 +149,15 @@ temp/
 
 Paths follow Unix conventions.
 
-Examples
+Current examples
 
 ```text
 /basic/hello.bas
 
-/asm/add.asm
-
 /data/log.txt
-
-/config/system.cfg
 ```
+
+Future examples include `/asm/add.asm` and `/config/system.cfg`.
 
 ---
 
@@ -163,11 +168,11 @@ Suggested conventions
 ```text
 .bas
 
-.asm
+.asm   future
 
 .bin
 
-.cfg
+.cfg   future
 
 .txt
 ```

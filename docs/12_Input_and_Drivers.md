@@ -223,9 +223,9 @@ source/bin
 ```
 
 The shell can call `/bin/hardware` as a terminal command, but the hardware
-code is not part of the shell core. Future BASIC and monitor code should call
-the same `source/hardware` APIs or use the shell command API when a text command
-path is required.
+code is not part of the shell core. BASIC GPIO/ADC statements call the same
+`source/hardware` APIs through `main/basic_hardware.*`. Future monitor code
+should also call the C APIs directly unless a text command path is required.
 
 The current hardware terminal command families are:
 

@@ -248,9 +248,7 @@ LOW
 HIGH
 ```
 
-GPIO may be referenced by
-
-Pin number
+GPIO is referenced by pin number in the current implementation.
 
 ```basic
 DWRITE 8,1
@@ -266,11 +264,7 @@ Preferred example:
 50 END
 ```
 
-or Alias
-
-```basic
-DWRITE "LED",1
-```
+String aliases such as `"LED"` are deferred.
 
 ---
 

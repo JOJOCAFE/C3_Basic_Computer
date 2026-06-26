@@ -2,219 +2,178 @@
 
 # 06 BASIC Language
 
-Status: Draft
+Status: Implemented first tiny numbered BASIC slice.
 
 ---
 
 ## Purpose
 
-C3 BASIC is the primary programming language of C3 BASIC COMPUTER.
+C3 BASIC is the small programming language surface for C3 BASIC COMPUTER. The
+current implementation is intentionally tiny, deterministic, and line-numbered.
+Larger modern BASIC features are future goals, not current behavior.
 
-It combines the simplicity of classic BASIC with the capabilities of a modern computer.
+Programs are stored as UTF-8 plain text in `/basic/*.bas` and edited with:
 
-Classic BASIC.
+```text
+BASIC /basic/name.bas
+```
 
-Modern Computer.
+Inside nano BASIC mode:
 
----
+```text
+:run    Save, validate, and run the current program
+:debug  Save, validate, and step-run the current program
+```
 
-## Language Goals
-
-The language should be
-
-* Easy to read
-* Easy to write
-* Easy to explore
-* Easy to modify
-* Easy to share
-
-Programs are stored as UTF-8 plain text.
+The boot shell does not expose BASIC immediate mode. Commands such as `PRINT`,
+`RUN`, `LIST`, `LOAD`, `SAVE`, and `NEW` are rejected by the boot shell.
 
 ---
 
-## Program Format
+## Current Program Format
 
-Both formats are supported.
-
-Classic
+Only classic numbered BASIC is executable in the current firmware:
 
 ```basic
 10 PRINT "HELLO, WORLD!"
 20 END
 ```
 
-Modern
+Rules:
 
-```basic
-PRINT "HELLO, WORLD!"
+- Each nonblank executable source line must start with a positive decimal line
+  number.
+- The line number must be followed by whitespace or end-of-line.
+- Malformed numeric prefixes such as `123ABC` are rejected before save/run.
+- The nano BASIC buffer is 64 KiB.
+- Validation errors include source line number, reason, and a short excerpt.
+
+Modern unnumbered BASIC is deferred.
+
+---
+
+## Variables And Expressions
+
+Current variables are single letters `A` through `Z`.
+
+Supported expression features:
+
+```text
++  -  *  /  %
+( )
+=  <>  <  <=  >  >=
+```
+
+Built-in functions:
+
+```text
+ABS(expr)
+INT(expr)
+RND()
+RND(limit)
+DREAD(pin)
+AREAD(gpio)
+```
+
+Current constants:
+
+```text
+LOW
+HIGH
+INPUT
+INPUT_PULLUP
+INPUT_PULLDOWN
+OUTPUT
+OUTPUT_OPEN_DRAIN
+```
+
+Long variable names, arrays, floating point, strings as variables, `PI`, `E`,
+trigonometry, logarithms, and modern structured control syntax are deferred.
+
+---
+
+## Current Statements
+
+Core statements:
+
+```text
+REM text
+PRINT expr
+PRINT "text"
+LET A = expr
+A = expr
+INPUT A
+IF expr relop expr THEN line [ELSE line]
+GOTO line
+GOSUB line
+RETURN
+FOR A = start TO limit [STEP step]
+NEXT [A]
 END
+STOP
 ```
 
-Editors may convert between formats whenever practical.
-
----
-
-## Case Sensitivity
-
-The language is case-sensitive.
-
-Examples
+Safe service bridge:
 
 ```basic
-score
-
-Score
-
-SCORE
+SHELL "PWD"
+SHELL "CAT /data/note.txt"
+HARDWARE "gpio read -p 8"
+HARDWARE "adc read -p 0"
 ```
 
-are three different identifiers.
-
----
-
-## Variables
-
-Variable names are not limited to single letters.
-
-Examples
+Typed hardware statements:
 
 ```basic
-score
-
-playerName
-
-total_sum
-
-counter1
+PINMODE 8, OUTPUT
+DWRITE 8, HIGH
+DTOGGLE 8
 ```
 
----
-
-## Assignment
-
-Both forms are valid.
+Typed hardware functions:
 
 ```basic
-LET score = 100
+PRINT DREAD(8)
+PRINT AREAD(0)
 ```
 
-```basic
-score = 100
-```
-
----
-
-## Comments
-
-Two comment styles are supported.
-
-```basic
-REM This is a comment
-```
-
-```basic
-' This is also a comment
-```
-
----
-
-## Strings
-
-Strings use double quotation marks.
-
-Example
-
-```basic
-PRINT "HELLO, WORLD!"
-```
-
----
-
-## Control Flow
-
-Conditional
-
-```basic
-IF score > 90 THEN
-    PRINT "PASS"
-ELSE
-    PRINT "TRY AGAIN"
-ENDIF
-```
-
-Loop
-
-```basic
-FOR i = 1 TO 10
-    PRINT i
-NEXT
-```
-
----
-
-## Arrays
-
-Example
-
-```basic
-DIM score(100)
-```
-
----
-
-## Built-in Functions
-
-Examples
+Hardware errors stop the program and include the BASIC line number:
 
 ```text
-ABS
-INT
-ROUND
-
-SIN
-COS
-TAN
-
-SQRT
-
-LOG
-EXP
-
-RND
+Line 10: protected pin
+BASIC ERROR
 ```
 
-Constants
+---
+
+## Debug Mode
+
+`:debug` step-runs a BASIC program. It is BASIC statement stepping, not CPU or
+native monitor stepping.
+
+Controls:
 
 ```text
-PI
-
-E
+Enter or s  Step next statement
+c           Continue until END or error
+p           Print current variables
+l           List current source line
+q           Quit debug and return to nano
 ```
 
 ---
 
-## Program Files
+## Deferred Language Goals
 
-Programs use
+These remain design goals and must be implemented as separate milestones:
 
-```text
-.bas
-```
+- Modern unnumbered BASIC.
+- Long identifiers.
+- Arrays and `DIM`.
+- String variables and string functions.
+- `DATA` / `READ`.
+- File I/O from BASIC beyond the current controlled `SHELL "CAT ..."` bridge.
+- Graphics, sound, network, timers, events, I2C, and SPI BASIC libraries.
+- Native ASM capture/execution.
 
-UTF-8 plain text.
-
----
-
-## Design Rules
-
-The language prefers readability over brevity.
-
-Plain text over tokenized storage.
-
-Simple syntax over clever syntax.
-
-Classic ideas over unnecessary novelty.
-
----
-
-Keep Going.
+Native execution remains blocked until a later guarded runtime sprint.

@@ -204,21 +204,19 @@ protected recovery behavior
 
 ## BASIC Plugin
 
-Later BASIC plugin scope:
+Implemented BASIC plugin scope:
 
 - Match `.bas` files under `/basic`.
 - Validate that numbered program lines start with a decimal line number followed
   by whitespace or end of line.
 - Allow blank lines and comments as plain text.
 - Reject malformed numeric prefixes such as `123ABC`.
-- Do not run BASIC from the editor.
+- Run BASIC from the editor with `:run`.
+- Step-run BASIC from the editor with `:debug`.
 - Do not expose BASIC in boot-shell `HELP`.
 
-Future BASIC runtime scope:
-
-- Optional format command.
-- Optional `RUN` handoff to a BASIC runtime service.
-- Optional lint messages for unknown statements.
+BASIC run/debug was completed as follow-on Sprint 006 work. Future BASIC editor
+scope is limited to optional formatting and richer lint messages.
 
 ## ASM Plugin
 
@@ -267,8 +265,8 @@ Rules:
 ## Service Lifecycle
 
 The shell starts `/bin/nano` with argv-like text arguments. The `EDIT` command
-maps directly to `/bin/nano`. Later, `BASIC` and `ASM` map to `/bin/nano` with a
-language plugin selected.
+maps directly to `/bin/nano`. `BASIC` maps to `/bin/nano` with the BASIC plugin
+selected. Future `ASM` should map to `/bin/nano` with the ASM plugin selected.
 
 Lifecycle:
 

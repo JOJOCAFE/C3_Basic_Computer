@@ -2,7 +2,7 @@
 
 # 08 Workspace
 
-Status: Draft
+Status: Current implementation plus design goals
 
 ---
 
@@ -30,27 +30,39 @@ The Workspace should be
 
 ## Supported Files
 
-The Workspace opens all supported text files.
+The current workspace is the nano editor service launched from the shell.
+
+Current entry points
+
+```text id="wk-current-entry"
+EDIT /data/name.txt
+BASIC /basic/name.bas
+/bin/nano /data/name.txt
+```
+
+Design goal: the Workspace should open all supported text files through one
+consistent editor model.
 
 Examples
 
 ```text id="t2i06x"
 .bas
 
-.asm
+.asm   future
 
 .txt
 
-.cfg
+.cfg   future
 ```
 
-Every supported file uses the same editor.
+Current firmware uses nano for `.txt` and `.bas`. Assembly and config editor
+flows remain future work.
 
 ---
 
 ## Plain Text
 
-All editable files are UTF-8 plain text.
+All editable text files are UTF-8 plain text.
 
 The Workspace never stores proprietary editor formats.
 
@@ -59,24 +71,34 @@ The Workspace never stores proprietary editor formats.
 ## Primary Actions
 
 ```text id="oh2b8c"
-Open
+open file from shell command
 
-Save
+save
 
-Save As
+save as
 
-Close
+exit
 
-Run
+run BASIC
 
-Assemble
+debug BASIC
 
-Help
-
-Find
-
-Go To Line
+help
 ```
+
+The implemented commands are nano colon commands. From inside nano:
+
+```text id="wk-current-actions"
+:w
+:w /path/name
+:q
+:run
+:debug
+:help
+```
+
+Find, go to line, and assemble are design goals, not current firmware
+commands.
 
 ---
 
@@ -88,13 +110,21 @@ When the current file is
 .bas
 ```
 
-the command
+the nano command
 
 ```text id="pmrbp9"
-run
+:run
 ```
 
 executes the current program.
+
+The debug command
+
+```text id="wk-debug"
+:debug
+```
+
+starts step mode. The debug prompt accepts `s`, `n`, `c`, `p`, and `q`.
 
 ---
 
@@ -106,13 +136,13 @@ When the current file is
 .asm
 ```
 
-the command
+assembly from the workspace is a future feature. The planned command is
 
 ```text id="rprn1g"
-asm
+:asm
 ```
 
-assembles the current program.
+but native ASM editing/assembly/run has not been implemented yet.
 
 ---
 
@@ -120,7 +150,7 @@ assembles the current program.
 
 HELP is available directly from the Workspace.
 
-Examples
+Future examples
 
 ```text id="q29k08"
 help line
@@ -130,7 +160,8 @@ help sound
 help asm
 ```
 
-The maker should never leave the Workspace to look for documentation.
+The maker should eventually never leave the Workspace to look for
+documentation. Current nano help is available with `:help`.
 
 ---
 
@@ -146,35 +177,33 @@ Keyboard remains the primary interface.
 
 ## Editing
 
-Minimum editing capabilities
+Implemented editing capabilities
 
 ```text id="r4e5ep"
 Insert
 
 Delete
 
-Copy
+cursor movement
 
-Paste
+line editing
 
-Undo
+save
 
-Redo
+save as
 
-Find
-
-Replace
+quit
 ```
+
+Copy, paste, undo, redo, find, and replace are future goals.
 
 ---
 
 ## Navigation
 
-Examples
+Implemented navigation
 
 ```text id="dgkvlg"
-Go To Line
-
 Beginning of File
 
 End of File
@@ -184,15 +213,18 @@ Page Up
 Page Down
 ```
 
+Go to line is a future goal.
+
 ---
 
 ## Language Independence
 
-The Workspace is not a BASIC editor.
+The Workspace edits text and can attach language actions to file modes.
 
-The Workspace is not an Assembly editor.
+Current BASIC mode is enabled through `BASIC /basic/name.bas` and nano
+`:run`/`:debug`.
 
-It edits text.
+Assembly mode is not implemented yet.
 
 The file determines how it is used.
 
@@ -205,14 +237,15 @@ The Workspace should encourage exploration.
 Examples
 
 ```text id="k2gnyb"
-help
+:help
 
-run
+:run
 
-asm
+:debug
 ```
 
-should always be available without leaving the current file.
+are available without leaving the current BASIC file. Future workspace
+commands should follow the same model.
 
 ---
 
@@ -237,6 +270,9 @@ Future versions may include
 * Auto completion
 * Code folding
 * Multiple tabs
+* Assembly workspace mode
+* Find and replace
+* Go to line
 
 These features should remain optional.
 

@@ -141,16 +141,21 @@ MV
 
 ---
 
-## Deferred Workspace Commands
+## Workspace Editor Commands
 
 BASIC is not exposed directly from the boot shell.
 
-Planned workspace editor commands:
+Implemented workspace editor commands:
 
 ```text
 EDIT
 
 BASIC
+```
+
+Planned workspace editor command:
+
+```text
 
 ASM
 ```
@@ -169,10 +174,10 @@ Examples
 > RMDIR temp/empty
 ```
 
-`EDIT <path>` is the shell command for the text editor. Later,
-`BASIC <path>` and `ASM <path>` should call the same nano editor service with
-the BASIC or ASM plugin selected. Native ASM execution remains blocked until a
-later guarded runtime sprint.
+`EDIT <path>` is the shell command for the text editor. `BASIC <path>` calls the
+same nano editor service with the BASIC plugin selected. Future `ASM <path>`
+should call nano with the ASM plugin selected. Native ASM execution remains
+blocked until a later guarded runtime sprint.
 
 ---
 
@@ -337,10 +342,11 @@ Detailed behavior is documented in the Monitor documentation.
 HELP PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV RENEW
 ```
 
-Per-command help is deferred. BASIC, ASM, system information, graphics, sound,
-hardware services, and monitor commands must stay out of `HELP` until their
-runtime behavior is implemented and tested as shell commands. Current hardware
-access remains a `/bin` service.
+Per-command help is deferred. `BASIC` remains intentionally omitted from
+firmware `HELP` because it is not boot-shell immediate mode. ASM, system
+information, graphics, sound, hardware services, and monitor commands must stay
+out of `HELP` until their runtime behavior is implemented and tested as shell
+commands. Current hardware access remains a `/bin` service.
 
 ---
 

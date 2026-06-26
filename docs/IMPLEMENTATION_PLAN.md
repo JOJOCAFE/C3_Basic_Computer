@@ -161,8 +161,9 @@ hardware code to the shell core.
 
 ### Status
 
-Completed for the `/bin/hardware` GPIO/ADC/I2C/SPI terminal adapter boundary.
-GPIO is board-tested; ADC/I2C/SPI are build-verified and ready for board smoke.
+Completed for the `/bin/hardware` GPIO/ADC/I2C/SPI terminal adapter boundary
+and the first BASIC GPIO/ADC adapter. GPIO is board-tested; ADC/I2C/SPI are
+build-verified and ready for board smoke.
 
 ### Done
 
@@ -171,12 +172,13 @@ GPIO is board-tested; ADC/I2C/SPI are build-verified and ready for board smoke.
   the root firmware.
 * `source/shell` remains standalone without hardware/bin dependencies.
 * GPIO8 board test passed through the shell using generic GPIO commands.
+* BASIC GPIO/ADC statements and functions call `source/hardware` through
+  `main/basic_hardware.*`.
 * Root firmware and standalone shell builds pass with the hardware adapters
   wired.
 
 ### Deferred
 
-* BASIC hardware statements should call `source/hardware`.
 * ADC/I2C/SPI board smoke should be run after flashing the wired adapters.
 
 ---
@@ -200,7 +202,14 @@ Core BASIC Library.
 
 ### Done
 
-The BASIC Library is operational.
+The first BASIC library slice is operational: integer math helpers (`ABS`,
+`INT`, `RND`) and typed GPIO/ADC helpers (`PINMODE`, `DWRITE`, `DTOGGLE`,
+`DREAD()`, `AREAD()`).
+
+### Deferred
+
+Graphics, sound, motion, network, timers, arrays, strings, I2C/SPI BASIC
+libraries, and native ASM integration remain separate milestones.
 
 ---
 

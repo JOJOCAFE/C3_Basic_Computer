@@ -147,9 +147,10 @@ Implemented now:
 - I2C config/probe/scan terminal commands through `/bin/hardware i2c`
 - SPI config/transfer terminal commands through `/bin/hardware spi`
 - ADC, I2C, and SPI C APIs for firmware callers
+- BASIC GPIO/ADC statements/functions through `main/basic_hardware.*`, which
+  calls `source/hardware` directly instead of the `/bin/hardware` text adapter
 
 Deferred terminal commands:
 
 - I2C raw read/write/register helpers
 - SPI mode helpers beyond one full-duplex transfer command
-- BASIC statements/functions; BASIC should call `source/hardware` directly

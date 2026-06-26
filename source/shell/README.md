@@ -3,7 +3,7 @@
 This folder is a standalone shell package for the ESP32-C3. The shell is a
 small micro Linux-style workspace shell: it gives the board a prompt, file
 commands, safe workspace recovery, and a command API that other runtimes such as
-BASIC can call later.
+BASIC can call through controlled APIs.
 
 The shell is intentionally separate from BASIC and ASM. It does not expose BASIC
 commands such as `PRINT`, `LIST`, or `RUN`.
@@ -59,7 +59,9 @@ LittleFS storage backend.
 
 The parent firmware may register external `/bin` services above the shell. The
 current root firmware registers `/bin/hardware` through `source/bin` and
-`source/hardware`. The standalone shell project does not link those folders.
+`source/hardware`. BASIC hardware statements call `source/hardware` directly
+through `main/basic_hardware.*`; they are not part of the shell. The standalone
+shell project does not link those folders.
 
 ## Build Standalone
 
@@ -211,8 +213,9 @@ shell_exec_line("LS /basic", &io);
 shell_exec_command(SHELL_COMMAND_PWD, NULL, &io);
 ```
 
-Callers can capture output through `shell_exec_io_t.write`. This is the intended
-path for a future BASIC `SYSTEM`-style call or a monitor runtime. See
+Callers can capture output through `shell_exec_io_t.write`. The current BASIC
+runtime uses a small whitelist for `SHELL "PWD"` and `SHELL "CAT <file>"`.
+Broader `SYSTEM`-style access remains intentionally unavailable. See
 [`COMMAND_API.md`](COMMAND_API.md).
 
 ## Porting To Another ESP32-C3 Project

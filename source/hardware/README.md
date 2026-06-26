@@ -61,16 +61,19 @@ This API is intended for future clients such as:
 - `/bin/hardware adc`
 - `/bin/hardware i2c`
 - `/bin/hardware spi`
-- BASIC or monitor runtimes that call the same C service layer
+- BASIC GPIO/ADC statements through `main/basic_hardware.*`
+- monitor runtimes that call the same C service layer
 
 Those clients are separate workspace commands/programs above the shell, not
 shell built-ins.
 
 The currently implemented terminal command client is `/bin/hardware`, with
 GPIO, ADC, I2C, and SPI subcommands. It is provided by `source/bin`, not by
-`source/shell`. The root firmware registers the `/bin` command handler during
-startup; the standalone shell build does not include `source/bin` or
-`source/hardware`.
+`source/shell`. BASIC also has a typed GPIO/ADC adapter in
+`main/basic_hardware.*`; that adapter calls this package directly and does not
+format `/bin/hardware` text commands. The root firmware registers the `/bin`
+command handler during startup; the standalone shell build does not include
+`source/bin` or `source/hardware`.
 
 ## Safety Defaults
 
@@ -106,6 +109,26 @@ built-ins:
 ```
 
 See [`COMMANDS.md`](COMMANDS.md) for syntax, output, and examples.
+
+## Current BASIC Hardware Surface
+
+The first BASIC hardware slice is GPIO/ADC only:
+
+```basic
+PINMODE pin, INPUT
+PINMODE pin, INPUT_PULLUP
+PINMODE pin, INPUT_PULLDOWN
+PINMODE pin, OUTPUT
+PINMODE pin, OUTPUT_OPEN_DRAIN
+DWRITE pin, LOW
+DWRITE pin, HIGH
+DTOGGLE pin
+PRINT DREAD(pin)
+PRINT AREAD(gpio)
+```
+
+`LOW` is `0`, `HIGH` is `1`, and GPIO18/GPIO19 remain protected. BASIC I2C and
+SPI commands are not implemented yet.
 
 ## Verification
 
