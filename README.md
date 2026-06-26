@@ -132,6 +132,21 @@ EDIT /data/note.txt
 /bin/nano /data/note.txt
 ```
 
+BASIC source opens through the same nano editor service in BASIC mode:
+
+```text
+BASIC /basic/hello.bas
+```
+
+Current BASIC editor mode accepts `/basic/*.bas`, validates numbered BASIC lines
+before save, and keeps the runtime separate from the boot shell. `:run` will run
+the open BASIC buffer from nano, and `:debug` will step-run the BASIC program
+one statement at a time. BASIC editor-run source uses the same 64 KiB nano text
+buffer. Planned BASIC shell/hardware bridge commands are limited to explicitly
+whitelisted safe query operations such as `PWD`, `LS`, `CAT`, and typed hardware
+reads; destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and
+native execution stay blocked.
+
 Inside nano:
 
 ```text
@@ -147,7 +162,8 @@ Text line  Append text
 
 Current limits and behavior:
 
-- Edits `/data/*.txt` only.
+- `EDIT` edits `/data/*.txt` only.
+- `BASIC` edits `/basic/*.bas` only.
 - Text buffer is 64 KiB per open file, including line separators.
 - Input line buffer is 64 KiB, bounded by the same editor capacity.
 - Allocation failure prints `Out of memory` and returns to the shell.

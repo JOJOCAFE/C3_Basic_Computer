@@ -223,13 +223,28 @@ Current `/bin/nano` editor service:
 ```text
 /bin/nano <path>
 EDIT <path>
+BASIC <path>
 ```
 
 `/bin/nano` is a small nano-style text editor service. `EDIT <path>` is the
-shell command that launches it. The first implementation edits `/data/*.txt`
-files only. BASIC and ASM behavior should attach later through removable editor
-plugins/services. `BASIC <path>` and `ASM <path>` are planned shell front ends
-to nano plugin modes, not shell built-ins for language runtime behavior.
+plain text shell launcher and edits `/data/*.txt` files only. `BASIC <path>` is
+the BASIC editor launcher and edits `/basic/*.bas` files only. BASIC mode
+validates numbered BASIC lines before save. BASIC runtime behavior is invoked
+from nano commands, not from boot-shell immediate mode.
+
+Planned BASIC runtime editor commands:
+
+```text
+:run    Save, validate, and run the open BASIC program
+:debug  Step-run the open BASIC program one statement at a time
+```
+
+BASIC editor-run source uses the full 64 KiB nano text buffer. BASIC shell and
+hardware access must go through an explicit safe bridge. The first bridge allows
+only whitelisted query-style commands such as `PWD`, `LS`, `CAT`, and typed
+hardware reads. It must block destructive or protected commands such as `RENEW`,
+`RM`, `RM -R`, `WRITE`, `CP`, `MV`, and native execution. `ASM <path>` remains a
+planned shell front end to nano ASM mode.
 
 Current editor limits:
 

@@ -25,6 +25,10 @@ static const char *const nano_aliases[] = {
     "EDIT",
 };
 
+static const char *const basic_aliases[] = {
+    "BASIC",
+};
+
 static const bin_service_t g_services[] = {
 #if CONFIG_C3_SERVICE_HARDWARE
     {
@@ -41,6 +45,13 @@ static const bin_service_t g_services[] = {
         .aliases = nano_aliases,
         .alias_count = sizeof(nano_aliases) / sizeof(nano_aliases[0]),
         .exec = bin_nano_exec,
+        .removable = true,
+    },
+    {
+        .name = "basic",
+        .aliases = basic_aliases,
+        .alias_count = sizeof(basic_aliases) / sizeof(basic_aliases[0]),
+        .exec = bin_basic_exec,
         .removable = true,
     },
 #endif

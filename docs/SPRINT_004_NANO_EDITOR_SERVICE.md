@@ -347,12 +347,12 @@ Exit status:
 
 ### N4-T5 - Add BASIC editor plugin
 
-- [ ] Add `.bas` mode detection.
-- [ ] Register shell command `BASIC <path>` as a front end to `/bin/nano` with
+- [x] Add `.bas` mode detection.
+- [x] Register shell command `BASIC <path>` as a front end to `/bin/nano` with
   BASIC plugin mode.
-- [ ] Add pre-save numeric-line validation.
-- [ ] Keep BASIC runtime separate.
-- [ ] Pass criteria:
+- [x] Add pre-save numeric-line validation.
+- [x] Keep BASIC runtime separate.
+- [x] Pass criteria:
   - `123ABC` is rejected.
   - Valid numbered BASIC text saves.
   - No BASIC run command appears in boot-shell `HELP`.

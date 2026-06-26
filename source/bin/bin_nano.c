@@ -33,7 +33,8 @@ static char *next_token_local(char **cursor)
     return start;
 }
 
-shell_status_t bin_nano_exec(const char *args, const shell_exec_io_t *io)
+static shell_status_t bin_editor_exec(const char *args, const shell_exec_io_t *io,
+                                      editor_mode_t mode, const char *usage)
 {
     char buf[160];
     char *cursor = buf;
@@ -49,7 +50,7 @@ shell_status_t bin_nano_exec(const char *args, const shell_exec_io_t *io)
 
     path = next_token_local(&cursor);
     if (!path) {
-        bin_write(io, "Usage: EDIT /data/name.txt\r\n");
+        bin_write(io, usage);
         return SHELL_STATUS_BAD_INPUT;
     }
 
@@ -60,7 +61,17 @@ shell_status_t bin_nano_exec(const char *args, const shell_exec_io_t *io)
 
     request.path = path;
     request.cwd = "/";
-    request.mode = EDITOR_MODE_TEXT;
+    request.mode = mode;
 
     return editor_status_to_shell_status(editor_run(&request, io));
+}
+
+shell_status_t bin_nano_exec(const char *args, const shell_exec_io_t *io)
+{
+    return bin_editor_exec(args, io, EDITOR_MODE_TEXT, "Usage: EDIT /data/name.txt\r\n");
+}
+
+shell_status_t bin_basic_exec(const char *args, const shell_exec_io_t *io)
+{
+    return bin_editor_exec(args, io, EDITOR_MODE_BASIC, "Usage: BASIC /basic/name.bas\r\n");
 }

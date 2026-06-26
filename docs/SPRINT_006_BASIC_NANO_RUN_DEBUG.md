@@ -117,14 +117,14 @@ Line text must fit within the 64 KiB source buffer
 
 ### B6-T1 - Freeze BASIC editor command contract
 
-- [ ] Update `docs/04_Shell_Reference.md`.
-- [ ] Update `README.md`.
-- [ ] Update `source/bin/README.md`.
-- [ ] Record `BASIC <path>`, `:run`, and `:debug` as BASIC editor features.
-- [ ] Record that `:debug` is BASIC step-run.
-- [ ] Record that BASIC editor-run source uses the full 64 KiB nano buffer.
-- [ ] Record the safe BASIC shell/hardware bridge.
-- [ ] Pass criteria:
+- [x] Update `docs/04_Shell_Reference.md`.
+- [x] Update `README.md`.
+- [x] Update `source/bin/README.md`.
+- [x] Record `BASIC <path>`, `:run`, and `:debug` as BASIC editor features.
+- [x] Record that `:debug` is BASIC step-run.
+- [x] Record that BASIC editor-run source uses the full 64 KiB nano buffer.
+- [x] Record the safe BASIC shell/hardware bridge.
+- [x] Pass criteria:
   - Docs distinguish `EDIT` plain text mode from `BASIC` editor mode.
   - Docs state that BASIC runtime is invoked from nano, not from boot-shell
     immediate mode.
@@ -132,12 +132,12 @@ Line text must fit within the 64 KiB source buffer
 
 ### B6-T2 - Add BASIC mode path policy
 
-- [ ] File: `source/editor/editor_service.c`
-- [ ] Accept `.bas` files under `/basic`.
-- [ ] Keep `.txt` files under `/data` valid for normal `EDIT`.
-- [ ] Decide whether `BASIC /data/name.txt` is allowed as BASIC mode for scratch
+- [x] File: `source/editor/editor_service.c`
+- [x] Accept `.bas` files under `/basic`.
+- [x] Keep `.txt` files under `/data` valid for normal `EDIT`.
+- [x] Decide whether `BASIC /data/name.txt` is allowed as BASIC mode for scratch
   testing.
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - `BASIC /basic/hello.bas` opens nano.
   - `EDIT /basic/hello.bas` either opens read/write text safely or returns a
     clear mode/path message.
@@ -145,30 +145,33 @@ Line text must fit within the 64 KiB source buffer
 
 ### B6-T3 - Register BASIC shell alias as editor launcher
 
-- [ ] File: `source/bin/bin_registry.c`
-- [ ] File: `source/bin/bin_nano.c`
-- [ ] Register `BASIC` as an alias/front end to `/bin/nano` with
+- [x] File: `source/bin/bin_registry.c`
+- [x] File: `source/bin/bin_nano.c`
+- [x] Register `BASIC` as a front end to the nano editor service with
   `EDITOR_MODE_BASIC`.
-- [ ] Do not add a separate BASIC runtime shell command in this task.
-- [ ] Pass criteria:
+- [x] Do not add a separate BASIC runtime shell command in this task.
+- [x] Pass criteria:
   - `BASIC /basic/hello.bas` enters nano BASIC mode.
   - `HELP` may list `BASIC` only as an editor launcher if the command is
     implemented and docs match.
 
 ### B6-T4 - Add BASIC plugin validation
 
-- [ ] File: `source/editor/editor_service.c` or new editor plugin file.
+- [x] File: `source/editor/editor_service.c` or new editor plugin file.
 - [ ] Validate on `:w`, `:wq`, `:run`, and `:debug`.
-- [ ] Numbered-line first slice:
+- [x] First slice validates on `:w` and `:wq`; `:run` and `:debug` validation
+  remain tied to runtime command implementation.
+- [x] Numbered-line first slice:
   - blank lines allowed
   - `REM` and `'` comment lines allowed only after a valid line number for the
     first runtime-backed slice
   - decimal line number must be followed by whitespace or end-of-line
   - malformed numeric prefixes such as `123ABC` rejected
   - total source must fit the 64 KiB editor buffer
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - Valid numbered BASIC saves.
-  - `123ABC` is rejected before save/run.
+  - `123ABC` is rejected before save; run/debug validation is covered when
+    those editor commands exist.
   - The editor buffer remains intact after validation errors.
 
 ### B6-T5 - Add 64 KiB BASIC buffer-to-runtime loader
@@ -266,7 +269,9 @@ Line text must fit within the 64 KiB source buffer
 
 ### B6-T9 - Add board smoke for BASIC nano mode
 
-- [ ] Add `tools/basic_editor_smoke.py`.
+- [x] Add `tools/basic_editor_smoke.py`.
+- [x] First slice covers BASIC open/save/reopen, path policy, invalid numeric-line
+  rejection, and HELP non-exposure.
 - [ ] Cover:
   - `BASIC /basic/hello.bas`
   - append valid numbered program

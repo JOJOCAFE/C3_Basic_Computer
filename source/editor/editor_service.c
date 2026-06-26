@@ -92,6 +92,7 @@ static bool resolve_editor_path(const editor_request_t *request, char *out, size
     const char *cwd = (request && request->cwd) ? request->cwd : "/";
     const char *path = request ? request->path : NULL;
     const char *data_prefix = STORAGE_WORKSPACE_MOUNT_POINT "/data/";
+    const char *basic_prefix = STORAGE_WORKSPACE_MOUNT_POINT "/basic/";
 
     if (!path || *skip_ws(path) == '\0') {
         return false;
@@ -101,7 +102,15 @@ static bool resolve_editor_path(const editor_request_t *request, char *out, size
         return false;
     }
 
-    return strncmp(out, data_prefix, strlen(data_prefix)) == 0 && has_suffix_ci(out, ".txt");
+    if (request->mode == EDITOR_MODE_TEXT) {
+        return strncmp(out, data_prefix, strlen(data_prefix)) == 0 && has_suffix_ci(out, ".txt");
+    }
+
+    if (request->mode == EDITOR_MODE_BASIC) {
+        return strncmp(out, basic_prefix, strlen(basic_prefix)) == 0 && has_suffix_ci(out, ".bas");
+    }
+
+    return false;
 }
 
 static editor_status_t load_buffer(editor_buffer_t *buffer)
@@ -234,6 +243,84 @@ static void show_help(const shell_exec_io_t *io)
         "Any other line appends text.\r\n");
 }
 
+static const char *editor_mode_name(editor_mode_t mode)
+{
+    switch (mode) {
+    case EDITOR_MODE_BASIC:
+        return ".bas";
+    case EDITOR_MODE_TEXT:
+    default:
+        return ".txt";
+    }
+}
+
+static bool validate_basic_buffer(const shell_exec_io_t *io, const editor_buffer_t *buffer)
+{
+    size_t source_line = 1;
+    const char *cursor = buffer ? buffer->text : NULL;
+
+    while (cursor && *cursor) {
+        const char *line = cursor;
+        const char *end = strpbrk(line, "\r\n");
+        const char *p = line;
+        bool has_digits = false;
+        long number = 0;
+
+        while (end && end > line && (end[-1] == '\r' || end[-1] == '\n')) {
+            end--;
+        }
+
+        while (p < (end ? end : line + strlen(line)) && isspace((unsigned char)*p)) {
+            p++;
+        }
+
+        const char *limit = end ? end : line + strlen(line);
+        if (p < limit) {
+            while (p < limit && isdigit((unsigned char)*p)) {
+                has_digits = true;
+                number = (number * 10) + (*p - '0');
+                p++;
+            }
+
+            if (!has_digits || number <= 0) {
+                char msg[96];
+                snprintf(msg, sizeof(msg), "BASIC validation failed line %u: missing line number\r\n",
+                         (unsigned)source_line);
+                editor_write(io, msg);
+                return false;
+            }
+
+            if (p < limit && !isspace((unsigned char)*p)) {
+                char msg[112];
+                snprintf(msg, sizeof(msg), "BASIC validation failed line %u: malformed line number\r\n",
+                         (unsigned)source_line);
+                editor_write(io, msg);
+                return false;
+            }
+        }
+
+        if (!end) {
+            break;
+        }
+        cursor = end;
+        while (*cursor == '\r' || *cursor == '\n') {
+            cursor++;
+        }
+        source_line++;
+    }
+
+    return true;
+}
+
+static editor_status_t validate_before_save(const shell_exec_io_t *io, const editor_request_t *request,
+                                            const editor_buffer_t *buffer)
+{
+    if (request && request->mode == EDITOR_MODE_BASIC && !validate_basic_buffer(io, buffer)) {
+        return EDITOR_STATUS_SAVE_FAILED;
+    }
+    return EDITOR_STATUS_OK;
+}
+
 editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_t *io)
 {
     editor_buffer_t *buffer;
@@ -254,13 +341,17 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
     }
 
     if (!resolve_editor_path(request, buffer->path, sizeof(buffer->path))) {
-        editor_write(io, "Bad editor path. Use /data/name.txt\r\n");
+        if (request && request->mode == EDITOR_MODE_BASIC) {
+            editor_write(io, "Bad editor path. Use /basic/name.bas\r\n");
+        } else {
+            editor_write(io, "Bad editor path. Use /data/name.txt\r\n");
+        }
         free(line);
         free_buffer(buffer);
         return EDITOR_STATUS_OPEN_FAILED;
     }
 
-    if (request->mode != EDITOR_MODE_TEXT) {
+    if (request->mode == EDITOR_MODE_ASM) {
         editor_write(io, "Language plugin not available\r\n");
         free(line);
         free_buffer(buffer);
@@ -278,7 +369,7 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
     }
 
     editor_writef(io, "EDIT %s\r\n", request->path);
-    editor_write(io, ".txt mode. Type :help for commands.\r\n");
+    editor_writef(io, "%s mode. Type :help for commands.\r\n", editor_mode_name(request->mode));
     show_buffer(io, buffer);
 
     while (true) {
@@ -299,6 +390,10 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
             clear_buffer(buffer);
             editor_write(io, "CLEARED\r\n");
         } else if (strcmp(line, ":w") == 0) {
+            status = validate_before_save(io, request, buffer);
+            if (status != EDITOR_STATUS_OK) {
+                continue;
+            }
             status = save_buffer(buffer);
             if (status != EDITOR_STATUS_OK) {
                 editor_write(io, "SAVE FAILED\r\n");
@@ -320,6 +415,10 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
             free_buffer(buffer);
             return EDITOR_STATUS_CANCELLED;
         } else if (strcmp(line, ":wq") == 0) {
+            status = validate_before_save(io, request, buffer);
+            if (status != EDITOR_STATUS_OK) {
+                continue;
+            }
             status = save_buffer(buffer);
             if (status != EDITOR_STATUS_OK) {
                 editor_write(io, "SAVE FAILED\r\n");
