@@ -48,6 +48,7 @@ This design intentionally narrows scope before assembly runtime work.
 3. `workspace_fs` (read-write) contains user files and scratch state.
 4. System and workspace must be independently mountable.
 5. `RENEW` must be implemented only on `workspace_fs`.
+6. The protected shell/renew path must not depend on files stored in `workspace_fs`.
 
 ### 3.2 Runtime mount points
 
@@ -66,7 +67,10 @@ This design intentionally narrows scope before assembly runtime work.
    - format-on-fail for first boot or damaged partition.
 3. Failure policy:
    - if `workspace_fs` fails badly, do not attempt to silently format `system_fs`.
-   - `storage_init` can fail hard only if workspace cannot be mounted.
+   - do not silently format `workspace_fs` at boot.
+   - start the protected shell path even when `workspace_fs` cannot mount or bootstrap.
+   - tell the user to run `RENEW` for controlled workspace repair.
+   - `storage_init` can fail hard only if the protected runtime path itself cannot start.
 
 ## 4) File system contract
 
@@ -90,6 +94,8 @@ This design intentionally narrows scope before assembly runtime work.
 1. `RENEW` deletes and recreates only `workspace_fs` content.
 2. `system_fs` contents must remain untouched by any workspace recovery flow.
 3. `RENEW` is an administrative command and should be two-step confirmed.
+4. User files must not be able to delete or replace the `RENEW` command.
+5. A corrupted workspace should degrade to protected recovery shell, not a brick.
 
 ## 5) Detailed task decomposition
 
@@ -122,7 +128,8 @@ Each task is intentionally small enough to review.
    3. prepare directory layout.
 4. Acceptance:
    - boot logs indicate both mount operations attempted.
-   - shell starts only when workspace is healthy.
+   - shell starts normally when workspace is healthy.
+   - protected shell still starts when workspace is unhealthy, with `RENEW` available.
 
 ### Task 4: Directory bootstrap service
 
@@ -154,6 +161,7 @@ Each task is intentionally small enough to review.
 5. Acceptance:
    - only workspace storage is deleted.
    - system mount remains available after renew.
+   - workspace is not auto-formatted before the two confirmations.
 
 ### Task 7: Add RENEW command flow in shell
 

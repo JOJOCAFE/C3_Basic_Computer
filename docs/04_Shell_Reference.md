@@ -2,7 +2,7 @@
 
 # 04 Shell Reference
 
-Status: Review
+Status: Implemented, Sprint 002 complete
 
 ---
 
@@ -43,7 +43,7 @@ The current working directory is intentionally not displayed.
 Use
 
 ```text
-pwd
+PWD
 ```
 
 to display it.
@@ -52,27 +52,29 @@ to display it.
 
 ## Command Style
 
-The Shell follows Unix-style conventions whenever practical.
+The Shell follows simple C3 command conventions now and adds Unix-style aliases
+where they make the workspace easier to use.
 
 Rules
 
-* lowercase commands
-* case-sensitive
+* document C3 commands in uppercase first
+* accept command keywords case-insensitively in firmware
 * space-separated arguments
 * Unix-style paths
+* keep file commands inside `/workspace`
 
 Examples
 
 ```text
-ls
+LS
 
-cd basic
+CD basic
 
-cat hello.bas
+CAT hello.bas
 
-edit hello.bas
+WRITE temp/note.txt hello
 
-run
+RUN
 ```
 
 ---
@@ -98,16 +100,14 @@ temp/
 
 ## Command Groups
 
-Shell commands are organized into four groups.
+Current shell behavior is organized into three groups.
 
 ```text
 Core
 
 Workspace
 
-System
-
-Monitor
+Deferred
 ```
 
 ---
@@ -115,52 +115,75 @@ Monitor
 ## Core Commands
 
 ```text
-help
+HELP
 
-pwd
+PWD
 
-ls
+DIR
 
-cd
+LS
 
-cat
+CD
 
-cp
+MKDIR
 
-mv
+CAT
 
-rm
+WRITE
 
-mkdir
+DELETE
 
-rmdir
+RM
+
+COPY
+
+CP
+
+MOVE
+
+MV
 ```
 
 ---
 
 ## Workspace Commands
 
+Current BASIC workspace commands preserved by the shell:
+
 ```text
-edit
+NEW
 
-run
+LIST
 
-basic
+RUN
 
-asm
+LOAD
+
+SAVE
+```
+
+Deferred workspace commands:
+
+```text
+EDIT
+
+BASIC
+
+ASM
 ```
 
 Examples
 
 ```text
-> edit hello.bas
+> SAVE basic/hello.bas
 
-> run
+> LOAD basic/hello.bas
 
-> asm add.asm
+> RUN
 ```
 
-When no filename is supplied, `run` executes the current program currently open in the Workspace whenever practical.
+ASM capture is the next candidate milestone. Native execution remains blocked
+until a later guarded runtime sprint.
 
 ---
 
@@ -183,6 +206,8 @@ diagnostics
 ```
 
 These commands provide information about the computer and manage the system.
+Only implemented commands should appear in firmware `HELP`; broader system
+commands are deferred unless listed in Sprint 002.
 
 Detailed behavior is documented in **10 System Commands**.
 
@@ -206,7 +231,8 @@ break
 
 Monitor Commands provide visibility into the computer.
 
-They are intended for exploration, debugging and learning.
+They are intended for exploration, debugging and learning. They are deferred
+until after the shell-first and ASM-boundary work.
 
 Detailed behavior is documented in the Monitor documentation.
 

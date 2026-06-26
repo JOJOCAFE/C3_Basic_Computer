@@ -14,7 +14,15 @@ Current implementation context:
 - `Old_version` flash partitioning is split into two LittleFS areas:
   - `system_fs` (read-mostly runtime boundary)
   - `workspace_fs` (renewable user workspace)
-- Current milestone progression still targets Phase 2: native RISC-V assembly support.
+- Boot and protected recovery do not depend on workspace files. If `workspace_fs`
+  is damaged, the shell still starts from the protected path and `RENEW` can
+  rebuild workspace after two confirmations.
+- Sprint 002 Micro UNIX-style workspace shell is complete and board-tested,
+  using the local OpenC6 BIOS fork as a structure reference.
+- Native RISC-V assembly capture is the next candidate milestone. Native
+  execution remains blocked until a later guarded runtime sprint.
+- BLE HID keyboard support has a compiled input boundary, but real keyboard
+  pairing remains hardware-pending.
 
 ## Design snapshot
 
@@ -22,7 +30,10 @@ Current implementation context:
 - Workspace path: `/` with writable folders (`/basic`, `/asm`, `/bin`, `/config`,
   `/data`, `/temp`)
 - Renewed workspace is constrained to `workspace_fs`; system storage remains separate.
-- Command style: lowercase, Unix-like, compact messages
+- `RENEW` is protected behavior and formats only `workspace_fs`; there is no
+  public `FORMAT` command in the shell sprint.
+- Command style: C3-compatible uppercase commands now, with Unix-style aliases
+  where they help (`DIR`/`LS`, `DELETE`/`RM`, `COPY`/`CP`, `MOVE`/`MV`)
 - Language-first interaction: BASIC and assembly are the main maker interfaces
 - Recoverability: system-protected runtime plus renewable user workspace
 
@@ -30,7 +41,7 @@ Current implementation context:
 
 - `docs/` — architecture, language, shell, filesystem, commands, and roadmap
 - `firmware/` — current firmware implementation
-- `tools/` — build scripts and serial smoke tests
+- `Old_version/tools/` — current build scripts and serial smoke tests
 - `hardware/` — hardware-related notes/design artifacts
 - `assets/`, `examples/`, `test/` — project assets, samples, and checks
 - `Old_version/` — legacy/reference history and phase records
@@ -38,63 +49,67 @@ Current implementation context:
 
 ## Build and flash
 
-The stable launcher is in `tools/idf53.sh` and expects ESP-IDF 5.3.x:
+The stable launcher is in `Old_version/tools/idf53.sh` and expects ESP-IDF 5.3.x:
 
 ```bash
-tools/idf53.sh -B build-idf53 build
-tools/idf53.sh -B build-idf53 -p /dev/ttyACM0 flash
+Old_version/tools/idf53.sh -C Old_version -B build-idf53 build
+Old_version/tools/idf53.sh -C Old_version -B build-idf53 -p /dev/ttyACM0 flash
 ```
 
 Common host-side checks:
 
 ```bash
-python3 tools/dir_delete_smoke.py --port /dev/ttyACM0
-python3 tools/load_list_run_smoke.py --port /dev/ttyACM0
-python3 tools/reboot_persistence_smoke.py --port /dev/ttyACM0
+python3 Old_version/tools/dir_delete_smoke.py --port /dev/ttyACM0
+python3 Old_version/tools/load_list_run_smoke.py --port /dev/ttyACM0
+python3 Old_version/tools/reboot_persistence_smoke.py --port /dev/ttyACM0
+python3 Old_version/tools/workspace_shell_smoke.py --port /dev/ttyACM0
+python3 Old_version/tools/renew_full_smoke.py --port /dev/ttyACM0
+python3 Old_version/tools/adversarial_shell_smoke.py --port /dev/ttyACM0
 ```
 
 ## Documented command surface
 
-Shell core:
-`help`, `pwd`, `ls`, `cd`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `rmdir`
+Current shell core:
+`HELP`, `PWD`, `DIR`, `LS`, `CD`, `MKDIR`, `CAT`, `WRITE`, `DELETE`, `RM`,
+`COPY`, `CP`, `MOVE`, `MV`, `LOAD`, `SAVE`, `NEW`, `LIST`, `RUN`, `RENEW`
 
-Workspace:
-`edit`, `run`, `basic`, `asm`
+Later workspace/system/monitor targets:
+`EDIT`, `BASIC`, `ASM`, `VERSION`, `MEMORY`, `DATE`, `TIME`, `DIAGNOSTICS`,
+`REG`, `MEM`, `DUMP`, `DISASM`, `STEP`, `BREAK`
 
-System:
-`version`, `memory`, `date`, `time`, `renew`, `update`, `diagnostics`
-
-Monitor:
-`reg`, `mem`, `dump`, `disasm`, `step`, `break`
+Only implemented commands should appear in firmware `HELP`.
 
 ## Strict implementation checklist
 
 See [`docs/IMPLEMENTATION_CHECKLIST.md`](/home/jo/Codex/C3_Basic_Computer/docs/IMPLEMENTATION_CHECKLIST.md) for a folder/file-level execution plan and acceptance criteria.
 
-Current high-priority implementation plan:
+Completed high-priority implementation plan:
 
-[`docs/PHASE1_FIX_LIST.md`](/home/jo/Codex/C3_Basic_Computer/docs/PHASE1_FIX_LIST.md)
+[`docs/SPRINT_002_TASK_LIST.md`](/home/jo/Codex/C3_Basic_Computer/docs/SPRINT_002_TASK_LIST.md)
 
 ## Implementation plan (recommended next steps)
 
-Follow the documented milestones in `docs/IMPLEMENTATION_PLAN.md` and `Old_version/TASK_LIST.md`.
+Sprint 002 shell-first work is complete. Resume in the order below.
 
-1. **Phase 2 – Assembly capture boundary**
+1. **Completed – Micro UNIX-style workspace shell**
+   - `PWD`, `CD`, `LS`/`DIR`, `MKDIR`, `CAT`, `WRITE`, `RM`/`DELETE`,
+     `COPY`/`CP`, and `MOVE`/`MV` are implemented.
+   - Keep all file commands constrained to `/workspace`.
+   - Keep `FORMAT`, `BOOT`, `RAMBOOT`, `XIP`, `PXE`, and OTA out of this sprint.
+
+2. **Completed – Input boundary**
+   - PC terminal over USB Serial/JTAG is the active backend.
+   - Shell input is behind an input service.
+   - BLE HID keyboard backend boundary exists; real pairing waits for hardware.
+
+3. **Next candidate – ASM capture boundary**
    - Parse and capture `ASM`/`ENDASM` blocks from BASIC safely.
    - Keep assembly source separate from BASIC source storage.
-   - Add line-specific errors for unsupported instructions.
-   - Validate assembler output in isolation before enabling execution.
+   - Validate assembler input before any execution work.
 
-2. **Phase 2 – Runtime execution boundary**
-   - Add `CALLASM()` and standalone `.asm` execution flow.
-   - Execute in a validated sandbox path (IRAM path once assembly correctness is proven).
-   - Add minimal diagnostics for run state and failure causes.
-
-3. **Phase 3 – Monitor tools**
-   - Implement `reg`, `mem`, `disasm`, `step`, `break`, `dump`.
-   - Keep monitor features independent and non-disruptive to shell/BASIC flow.
-
-4. **Phase 4+ – Capability expansion**
+4. **Later – Runtime, monitor, and capability expansion**
+   - Add `CALLASM()`, standalone `.asm` execution, and monitor commands only after
+     capture/validation passes.
    - Add graphics, sound, GPIO/motion, then standalone UX hardware integrations as separate milestones.
 
 ## UX and behavior goals

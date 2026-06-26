@@ -17,15 +17,15 @@ Implementation snapshot: `Old_version/main/*`
 | Computer-first design (architecture, recoverability, transparency) | `docs/01_Design_Principles.md`, `docs/02_Software_Architecture.md`, `docs/03_User_Experience_Guide.md` | PASS | `Old_version/main` boots directly into shell and presents command/programming flow. | No explicit design guardrails in runtime checks; still acceptable for phase 1. |
 | Boot-to-READY flow and simple shell prompt | `docs/03_User_Experience_Guide.md`, `docs/04_Shell_Reference.md` | PASS | `Old_version/main/shell.c` prints `C3 BASIC COMPUTER`, `Version 0.1`, `READY.`. | Keep stable. |
 | Friendly, non-numeric error style | `docs/03_User_Experience_Guide.md`, `docs/04_Shell_Reference.md` | PARTIAL | shell prints text messages, but many BASIC parse failures collapse to `BASIC ERROR` or `UNKNOWN COMMAND`. | Add line-aware and field-specific messages in remaining paths. |
-| Recoverability via renewable workspace | `docs/05_File_System.md` | PARTIAL | `RENEW` command is implemented with confirmation, but command help and command list are still phased in. | Confirmed behavior and destructive confirmation are implemented; finish cross-doc test evidence. |
+| Recoverability via renewable workspace | `docs/05_File_System.md` | PASS | `RENEW` command is implemented with two confirmations, formats only `workspace_fs`, and remains available from the protected shell path. Full destructive renew smoke passed on 2026-06-26. | Future damaged-workspace corruption simulation can broaden coverage. |
 | READY after operations | `docs/03_User_Experience_Guide.md` | PARTIAL | prompt loop exists, but not every path is verified to return READY semantics consistently. | Normalize end-of-command transitions and warnings. |
 
 ## 2) Layer coverage vs architecture
 
 | Requirement | Source | Status | Current Evidence | Gap / Action |
 | --- | --- | --- | --- | --- |
-| Shell command groups (core/workspace/system/monitor) | `docs/04_Shell_Reference.md`, `docs/10_System_Commands.md` | PARTIAL | Core+some workspace+no system/monitor commands implemented. | Implement at least `version`, `memory`, `date`, `time`, `update`, `diagnostics`, and monitor set. |
-| Storage services (LittleFS workspace + directory layout) | `docs/05_File_System.md`, `docs/02_Software_Architecture.md` | PARTIAL | `Old_version/main/storage.c` mounts two LittleFS partitions and creates `/basic,/asm,/bin,/config,/data,/temp` (+ legacy uppercase aliases). | Add system/ workspace usage observability + legacy-to-canonical migration expectations. |
+| Shell command groups (core/workspace/system/monitor) | `docs/04_Shell_Reference.md`, `docs/10_System_Commands.md` | PARTIAL | Sprint 002 core/workspace commands are implemented: `HELP`, `PWD`, `DIR`/`LS`, `CD`, `MKDIR`, `CAT`, `WRITE`, `DELETE`/`RM`, `COPY`/`CP`, `MOVE`/`MV`, plus BASIC workspace commands. | System information and monitor command sets remain future milestones. |
+| Storage services (LittleFS workspace + directory layout) | `docs/05_File_System.md`, `docs/02_Software_Architecture.md` | PASS | `Old_version/main/storage.c` mounts split LittleFS partitions, creates `/basic,/asm,/bin,/config,/data,/temp`, and keeps public file commands under `/workspace`. | Add optional workspace usage observability later. |
 | Workspace architecture `/basic`, `/asm`, `/config`, `/data`, `/temp` | `docs/05_File_System.md` | PARTIAL | `storage_resolve_path` uses canonical lowercase workspace layout, with uppercase compatibility aliases in runtime defaults. | Align remaining command docs and legacy migration behavior. |
 | Editor / Workspace features (`edit`, `run`, `asm`) | `docs/02_Software_Architecture.md`, `docs/08_Workspace.md` | FAIL | only shell-only flow; no dedicated editor workspace actions. | Add `edit` and workspace action semantics or document as phased-out only if temporary. |
 | System services (version/time/memory/diagnostics) | `docs/02_Software_Architecture.md`, `docs/10_System_Commands.md` | FAIL | Not implemented in current shell. | Implement command set in phase 3+. |
@@ -51,24 +51,24 @@ Implementation snapshot: `Old_version/main/*`
 
 | Requirement | Source | Status | Current Evidence | Gap / Action |
 | --- | --- | --- | --- | --- |
-| USB-serial input pipeline phase 1 | `docs/12_Input_and_Drivers.md` | PASS | `usb_serial_jtag` used as shell transport. | Confirm reliability edge cases and key handling consistency. |
-| Keyboard input event model / key mapping | `docs/12_Input_and_Drivers.md` | NOT_APPLICABLE | No explicit key-event abstraction layer. | Add driver abstraction for future phase-2+ input paths. |
-| BLE keyboard and standalone hardware drivers | `docs/12_Input_and_Drivers.md`, `docs/IMPLEMENTATION_PLAN.md` | NOT_APPLICABLE (Phase 2+) | Not in scope for current firmware branch. | Track as next hardware milestones. |
+| USB-serial input pipeline phase 1 | `docs/12_Input_and_Drivers.md` | PASS | `input_serial.c` owns the USB Serial/JTAG line editor behind the input API, and final shell/BASIC/adversarial smoke tests passed. | Keep as recovery/development backend. |
+| Keyboard input event model / key mapping | `docs/12_Input_and_Drivers.md` | PARTIAL | `input.h` defines the input event boundary and `input_ble_hid.c` includes a boot-keyboard ASCII mapper. | Complete full key queue, modifier, arrow, and reconnect behavior when BLE host integration is enabled. |
+| BLE keyboard and standalone hardware drivers | `docs/12_Input_and_Drivers.md`, `docs/IMPLEMENTATION_PLAN.md` | PARTIAL | BLE HID backend boundary is compiled but inactive; hardware pairing is not tested because the real keyboard is not available yet. | Enable ESP-IDF HID host, pair real keyboard, and verify disconnect/reconnect when hardware is available. |
 
 ## 6) Documentation vs behavior drift
 
 | Requirement | Source | Status | Current Evidence | Gap / Action |
 | --- | --- | --- | --- | --- |
-| Command surface documented as current milestone | `docs/IMPLEMENTATION_PLAN.md`, `docs/04_Shell_Reference.md` | FAIL | `Old_version/README.md` claims subset (`DIR/LOAD/SAVE...`), while docs now list broader shell/sys/monitor sets. | Add explicit versioned behavior matrix in README and milestone gate checklist. |
-| Demonstrable milestone criteria | `docs/IMPLEMENTATION_PLAN.md` | PARTIAL | smoke scripts exist in `Old_version/tools`, but no direct doc-driven evidence for all required outputs. | Convert each milestone to executable smoke + output assertions. |
+| Command surface documented as current milestone | `docs/IMPLEMENTATION_PLAN.md`, `docs/04_Shell_Reference.md` | PASS | README, shell reference, and Sprint 002 task list now document the implemented shell command set and defer system/monitor commands. | Keep firmware `HELP` and docs synchronized for future commands. |
+| Demonstrable milestone criteria | `docs/IMPLEMENTATION_PLAN.md` | PASS | Build, flash, workspace shell, BASIC load/list/run, renew, persistence, and adversarial smoke evidence is recorded in the Sprint 002 task list. | Add the same evidence discipline for later ASM and BLE milestones. |
 
 ## Priority remediation plan (next 2 sprints)
 
-1. Align storage namespace and workspace layout (`/basic,/asm,/bin,/config,/data,/temp`) without breaking compatibility.
-2. Add shell command set baseline: `version`, `memory`, `date`, `time`, `renew`, `diagnostics`.
-3. Add `help <command>` discovery behavior and keep unknown-command hard-fail stable.
-4. Add `asm` capture and validation boundary first (phase 2A) before enabling execution.
-5. Implement monitor command stubs or explicit not-supported messages with predictable outputs.
+1. Resume ASM capture as a non-execution milestone.
+2. Keep native execution blocked until assembler validation and runtime guardrails exist.
+3. Preserve the dual-partition storage boundary and keep all public file commands inside `/workspace`.
+4. Pair and test the BLE HID keyboard backend when real keyboard hardware is available.
+5. Add system information and monitor commands only after their behavior is documented and testable.
 
 ## Notes
 

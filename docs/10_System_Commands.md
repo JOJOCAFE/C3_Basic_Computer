@@ -149,6 +149,12 @@ Recreates the Workspace.
 
 The System remains unchanged.
 
+The command belongs to the protected system path. It must remain available even
+if the Workspace is damaged, and it formats only `workspace_fs`.
+
+Boot does not silently format a damaged Workspace. The user must explicitly
+confirm RENEW.
+
 The command always displays
 
 ```text id="jlwm38"

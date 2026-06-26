@@ -61,6 +61,29 @@ When implementing or planning, treat this file as the authoritative behavior con
 - Preserve recoverability and simple user-facing behavior.
 - Do not remove core shell/BASIC foundations without a replacement.
 
+## Current Sprint Routing
+
+- Sprint 002 Micro UNIX-style workspace shell is complete and board-tested.
+- Use the local OpenC6 BIOS fork as a shell-structure reference only:
+  - current-directory state
+  - path resolver
+  - command loop
+  - small file command handlers
+- Do not import OpenC6 `format`, `boot ram`, `boot xip`, XIP, PXE, OTA, UART1-only routing, or payload ABI behavior into the C3 shell sprint.
+- Keep BASIC behavior stable while the next ASM capture work moves.
+- ASM capture is the next candidate milestone; native execution remains blocked until a later guarded runtime sprint.
+- BLE HID keyboard support has a compiled input boundary and boot-keyboard mapper, but real keyboard pairing remains hardware-pending.
+
+## Protected Recovery Invariant
+
+- The computer has a protected system side and a maker-owned workspace side.
+- Boot and the protected shell/`RENEW` path must not depend on files stored in `/workspace`.
+- User commands may create, delete, or damage workspace files, but must not be able to delete or replace `RENEW`.
+- If `workspace_fs` is healthy, the shell enters normal workspace mode.
+- If `workspace_fs` is damaged, the shell still starts from the protected path and tells the user to run `RENEW`.
+- `RENEW` asks twice, formats only `workspace_fs`, recreates the workspace layout, and leaves the protected system side untouched.
+- Do not silently auto-format workspace during boot; recovery must be intentional.
+
 ## Canonical Architectural Contract
 
 ### Source anchors

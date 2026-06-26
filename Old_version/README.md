@@ -10,7 +10,9 @@ Current scope:
 - BASIC statements: `REM`, `LET`, assignment, `PRINT`, `INPUT`, `IF ... THEN ... ELSE`,
   `FOR ... TO ... STEP`, `NEXT`, `GOTO`, `GOSUB`, `RETURN`, `END`
 - BASIC math functions: `ABS`, `INT`, `ROUND`, `MIN`, `MAX`, `SQRT`, `SIN`, `COS`, `TAN`, `ASIN`, `ACOS`, `ATAN`, `ATAN2`, `LOG`, `EXP`, `RND`, `PI`, `E`, `DEG`, `RAD`
-- shell commands: `HELP`, `DIR`, `LOAD`, `SAVE`, `DELETE`, `NEW`, `LIST`, `RUN`, `RENEW`
+- shell commands: `HELP`, `PWD`, `DIR`, `LS`, `CD`, `MKDIR`, `CAT`, `WRITE`,
+  `RM`, `COPY`, `CP`, `MOVE`, `MV`, `LOAD`, `SAVE`, `DELETE`, `NEW`, `LIST`,
+  `RUN`, `RENEW`
 
 ## Hardware
 
@@ -157,5 +159,20 @@ Example program:
 
 ## Current next step
 
-Phase 1 shell, BASIC storage, and reboot persistence are hardware-tested. The
-next implementation phase is native RISC-V assembly support.
+Phase 1 shell, BASIC storage, reboot persistence, protected `RENEW`, and the
+Sprint 002 Micro UNIX-style workspace shell are hardware-tested.
+
+Implemented shell commands:
+
+```text
+HELP PWD DIR LS CD MKDIR CAT WRITE RM COPY CP MOVE MV
+LOAD SAVE DELETE NEW RUN LIST RENEW
+```
+
+Next software milestone:
+
+- resume ASM capture as a non-execution milestone
+- keep every shell file command inside `/workspace`
+- preserve current BASIC behavior while ASM capture work moves
+- keep native RISC-V execution blocked until a later guarded runtime sprint
+- pair and test the BLE HID keyboard backend when real keyboard hardware is available

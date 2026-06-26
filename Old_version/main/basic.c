@@ -495,6 +495,10 @@ bool basic_store_line(basic_program_t *program, const char *line)
         return false;
     }
 
+    if (*p != '\0' && !isspace((unsigned char)*p)) {
+        return false;
+    }
+
     p = skip_ws(p);
     if (*p == '\0') {
         for (size_t i = 0; i < program->count; ++i) {

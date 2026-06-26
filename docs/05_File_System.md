@@ -103,6 +103,10 @@ LittleFS is split into two partitions:
 
 `workspace_fs` stores user files and supports `RENEW`.
 
+Boot and protected recovery do not depend on files in `workspace_fs`. If the
+workspace is damaged, the shell still starts from the protected system path and
+offers `RENEW`.
+
 ---
 
 ## External Storage
@@ -185,6 +189,12 @@ The computer owns the System.
 RENEW recreates the Workspace.
 
 The System remains unchanged.
+
+RENEW is protected behavior. User files in the Workspace must not be able to
+delete, replace or disable it.
+
+Boot does not silently format a damaged Workspace. Recovery is intentional and
+goes through the confirmation flow below.
 
 RENEW always displays
 

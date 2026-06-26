@@ -2,7 +2,7 @@
 
 # 12 Input and Drivers
 
-Status: Draft
+Status: Review, Sprint 002 input boundary implemented
 
 ---
 
@@ -58,14 +58,15 @@ Shell / Workspace / BASIC
 
 ## Phase 1 Input
 
-Phase 1 uses PC Terminal input.
+Phase 1 uses PC Terminal input. In the current firmware, this path is routed
+through the shared input service.
 
 ```text
 PC Terminal
 
 ↓
 
-USB Serial
+USB Serial/JTAG
 
 ↓
 
@@ -82,7 +83,9 @@ This allows development before standalone hardware is complete.
 
 ## Phase 2 Input
 
-Phase 2 adds Bluetooth keyboard support.
+Phase 2 adds Bluetooth keyboard support. The firmware has a compiled BLE HID
+backend boundary and boot-keyboard ASCII mapper, but real pairing is pending
+keyboard hardware.
 
 ```text
 BLE HID Keyboard

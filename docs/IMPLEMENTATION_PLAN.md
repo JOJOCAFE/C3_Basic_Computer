@@ -58,17 +58,23 @@ Create a usable computer shell.
 * Prompt
 * help
 * pwd
+* dir
 * ls
 * cd
 * cat
+* write
 * mkdir
+* delete
 * rm
-* version
-* memory
+* copy
+* cp
+* move
+* mv
 
 ### Done
 
-The computer boots into a usable shell.
+The computer boots into a usable shell, manages files inside the workspace, and
+keeps BASIC/RENEW behavior stable.
 
 ---
 

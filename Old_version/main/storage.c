@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 
 static const char *TAG = "storage";
+static bool s_workspace_ready = false;
 
 static const char *const kWorkspaceDirs[] = {
     "basic",
@@ -32,6 +33,101 @@ static const size_t kWorkspaceDirCount = sizeof(kWorkspaceDirs) / sizeof(kWorksp
 static esp_err_t storage_mount_workspace(void);
 static esp_err_t storage_mount_system(void);
 static esp_err_t storage_prepare_workspace_layout(void);
+
+static void trim_path_copy(const char *input, char *out, size_t out_size)
+{
+    if (out_size == 0) {
+        return;
+    }
+
+    out[0] = '\0';
+    if (!input) {
+        return;
+    }
+
+    while (isspace((unsigned char)*input)) {
+        input++;
+    }
+
+    size_t len = strlen(input);
+    while (len > 0 && isspace((unsigned char)input[len - 1])) {
+        len--;
+    }
+
+    if (len >= out_size) {
+        len = out_size - 1;
+    }
+
+    memcpy(out, input, len);
+    out[len] = '\0';
+}
+
+static bool workspace_path_pop(char *path)
+{
+    if (strcmp(path, "/") == 0) {
+        return true;
+    }
+
+    char *last_sep = strrchr(path, '/');
+    if (!last_sep) {
+        return false;
+    }
+
+    if (last_sep == path) {
+        path[1] = '\0';
+    } else {
+        *last_sep = '\0';
+    }
+    return true;
+}
+
+static bool workspace_path_append(char *path, size_t path_size, const char *component)
+{
+    if (!component || component[0] == '\0' || strcmp(component, ".") == 0) {
+        return true;
+    }
+
+    if (strcmp(component, "..") == 0) {
+        return workspace_path_pop(path);
+    }
+
+    if (strchr(component, '\\') != NULL) {
+        return false;
+    }
+
+    int written;
+    size_t available;
+    if (strcmp(path, "/") == 0) {
+        available = path_size;
+        written = snprintf(path, available, "/%s", component);
+    } else {
+        size_t len = strlen(path);
+        if (len >= path_size) {
+            return false;
+        }
+        available = path_size - len;
+        written = snprintf(path + len, available, "/%s", component);
+    }
+
+    return written > 0 && (size_t)written < available;
+}
+
+static bool workspace_path_apply(char *path, size_t path_size, const char *input)
+{
+    char temp[STORAGE_PATH_MAX];
+    trim_path_copy(input, temp, sizeof(temp));
+
+    char *saveptr = NULL;
+    char *token = strtok_r(temp, "/", &saveptr);
+    while (token) {
+        if (!workspace_path_append(path, path_size, token)) {
+            return false;
+        }
+        token = strtok_r(NULL, "/", &saveptr);
+    }
+
+    return true;
+}
 
 static esp_err_t ensure_dir(const char *path)
 {
@@ -73,12 +169,12 @@ static esp_err_t storage_unmount_workspace(void)
 
 static esp_err_t storage_mount_system(void)
 {
-    return storage_mount(STORAGE_SYSTEM_MOUNT_POINT, STORAGE_SYSTEM_PARTITION_LABEL, true, true);
+    return storage_mount(STORAGE_SYSTEM_MOUNT_POINT, STORAGE_SYSTEM_PARTITION_LABEL, false, true);
 }
 
 static esp_err_t storage_mount_workspace(void)
 {
-    return storage_mount(STORAGE_WORKSPACE_MOUNT_POINT, STORAGE_WORKSPACE_PARTITION_LABEL, true, false);
+    return storage_mount(STORAGE_WORKSPACE_MOUNT_POINT, STORAGE_WORKSPACE_PARTITION_LABEL, false, false);
 }
 
 static esp_err_t storage_prepare_workspace_layout(void)
@@ -97,6 +193,8 @@ static esp_err_t storage_prepare_workspace_layout(void)
 
 esp_err_t storage_init(void)
 {
+    s_workspace_ready = false;
+
     esp_err_t err = storage_mount_system();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "failed to mount system filesystem: %s", esp_err_to_name(err));
@@ -107,45 +205,64 @@ esp_err_t storage_init(void)
     err = storage_mount_workspace();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "failed to mount workspace filesystem: %s", esp_err_to_name(err));
-        return err;
+        ESP_LOGW(TAG, "shell will start from protected system path; use RENEW to rebuild workspace");
+        return ESP_OK;
     }
 
     if (storage_prepare_workspace_layout() != ESP_OK) {
         ESP_LOGE(TAG, "failed to create workspace directories");
-        return ESP_FAIL;
+        ESP_LOGW(TAG, "shell will start from protected system path; use RENEW to rebuild workspace");
+        return ESP_OK;
     }
 
+    s_workspace_ready = true;
     ESP_LOGI(TAG, "workspace FS at %s", STORAGE_WORKSPACE_MOUNT_POINT);
     return ESP_OK;
 }
 
 esp_err_t storage_renew_workspace(void)
 {
+    s_workspace_ready = false;
+
+    ESP_LOGI(TAG, "renew workspace: unmounting %s", STORAGE_WORKSPACE_PARTITION_LABEL);
     esp_err_t err = storage_unmount_workspace();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "failed to unmount workspace filesystem: %s", esp_err_to_name(err));
         return err;
     }
+    ESP_LOGI(TAG, "renew workspace: unmounted %s", STORAGE_WORKSPACE_PARTITION_LABEL);
 
+    ESP_LOGI(TAG, "renew workspace: formatting %s", STORAGE_WORKSPACE_PARTITION_LABEL);
     err = esp_littlefs_format(STORAGE_WORKSPACE_PARTITION_LABEL);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "failed to format workspace partition: %s", esp_err_to_name(err));
         return err;
     }
+    ESP_LOGI(TAG, "renew workspace: formatted %s", STORAGE_WORKSPACE_PARTITION_LABEL);
 
+    ESP_LOGI(TAG, "renew workspace: remounting %s at %s", STORAGE_WORKSPACE_PARTITION_LABEL, STORAGE_WORKSPACE_MOUNT_POINT);
     err = storage_mount_workspace();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "failed to remount workspace filesystem: %s", esp_err_to_name(err));
         return err;
     }
+    ESP_LOGI(TAG, "renew workspace: remounted %s at %s", STORAGE_WORKSPACE_PARTITION_LABEL, STORAGE_WORKSPACE_MOUNT_POINT);
 
+    ESP_LOGI(TAG, "renew workspace: recreating workspace layout");
     if (storage_prepare_workspace_layout() != ESP_OK) {
         ESP_LOGE(TAG, "failed to recreate workspace directories after renew");
         return ESP_FAIL;
     }
+    ESP_LOGI(TAG, "renew workspace: workspace layout ready");
 
+    s_workspace_ready = true;
     ESP_LOGI(TAG, "workspace renew complete");
     return ESP_OK;
+}
+
+bool storage_workspace_ready(void)
+{
+    return s_workspace_ready;
 }
 
 bool storage_resolve_path(const char *input, char *out, size_t out_size)
@@ -175,4 +292,47 @@ bool storage_resolve_path(const char *input, char *out, size_t out_size)
     }
 
     return snprintf(out, out_size, "%s/%s", STORAGE_WORKSPACE_MOUNT_POINT, input) < (int)out_size;
+}
+
+bool storage_normalize_workspace_path(const char *cwd, const char *input, char *out, size_t out_size)
+{
+    if (!cwd || !out || out_size < 2 || cwd[0] != '/') {
+        return false;
+    }
+
+    char trimmed_input[STORAGE_PATH_MAX];
+    trim_path_copy(input, trimmed_input, sizeof(trimmed_input));
+
+    out[0] = '/';
+    out[1] = '\0';
+
+    if (!workspace_path_apply(out, out_size, cwd + 1)) {
+        return false;
+    }
+
+    if (trimmed_input[0] == '\0') {
+        return true;
+    }
+
+    if (trimmed_input[0] == '/') {
+        out[0] = '/';
+        out[1] = '\0';
+        return workspace_path_apply(out, out_size, trimmed_input + 1);
+    }
+
+    return workspace_path_apply(out, out_size, trimmed_input);
+}
+
+bool storage_resolve_workspace_path(const char *cwd, const char *input, char *out, size_t out_size)
+{
+    if (!out || out_size == 0) {
+        return false;
+    }
+
+    char relative[STORAGE_PATH_MAX];
+    if (!storage_normalize_workspace_path(cwd, input, relative, sizeof(relative))) {
+        return false;
+    }
+
+    return snprintf(out, out_size, "%s%s", STORAGE_WORKSPACE_MOUNT_POINT, relative) < (int)out_size;
 }

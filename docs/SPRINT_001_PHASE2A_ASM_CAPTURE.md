@@ -1,15 +1,22 @@
-# Sprint 001 — Phase 2A: ASM Capture (Execution blocked)
+# Sprint 001 — Phase 2A: ASM Capture (Paused, execution blocked)
 
-Scope: implement `ASM` block capture and deterministic validation in the current `Old_version` codebase, without enabling native execution yet.
+Status: Deferred; next candidate after completed Sprint 002 shell-first work.
+
+Scope when resumed: implement `ASM` block capture and deterministic validation in the current `Old_version` codebase, without enabling native execution.
+
+Execution remains disabled until a later ASM/runtime sprint. Sprint 002 has
+completed the Micro UNIX-style workspace shell and input boundary.
+
+Design reference: OpenC6 BIOS, forked at <https://github.com/JOJOCAFE/openc6-bios>, is useful now for shell structure only and later as a possible reference for a small host-to-native-code ABI jump table and serial payload handoff. Do not import that runtime model into Phase 2A. This sprint only captures, stores, and validates assembly source.
 
 This sprint is intentionally granular: one checkpoint at a time, each with clear pass criteria.
 
 ## Task 1 — Baseline hardening
 
 - [ ] Rename implementation path target in docs to `Old_version/main` in all new edits.
-- [ ] Add note at top of sprint: `asm execution disabled until Sprint 002`.
+- [ ] Add note at top of sprint: `asm execution disabled until a later guarded runtime sprint`.
 - [ ] Pass criteria:
-  - The repository still documents current status as “Phase 2A in progress”.
+  - The repository documents current status as “ASM capture deferred after completed Sprint 002 shell-first work”.
   - No functional behavior changed by documentation.
 
 ## Task 2 — Expose assembly metadata in BASIC API
@@ -120,7 +127,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
   - `docs/IMPLEMENTATION_PLAN.md` (if needed)
 - [ ] Pass criteria:
   - New status says:
-    - ASM capture implemented
+    - ASM capture deferred until this sprint is resumed
     - no native execution yet
   - Existing milestones 0–1 behavior unchanged.
 
