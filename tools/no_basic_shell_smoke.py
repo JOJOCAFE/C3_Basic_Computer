@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Destructive serial smoke test for full RENEW on the ESP32-C3 BASIC shell."""
+"""Serial smoke test that BASIC is not exposed by the micro Unix shell."""
 
 from __future__ import annotations
 
@@ -59,11 +59,6 @@ class ShellSession:
             response = ""
         return ShellResult(raw=raw, response=response)
 
-    def renew_yes_yes(self, timeout: float) -> str:
-        self.ser.write(b"RENEW\rY\rY\r")
-        self.ser.flush()
-        return self._read_until_prompt(timeout)
-
 
 def require(condition: bool, message: str) -> None:
     if not condition:
@@ -79,12 +74,8 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", default="/dev/ttyACM0")
     parser.add_argument("--baud", type=int, default=115200)
-    parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument("--timeout", type=float, default=7.0)
     args = parser.parse_args(argv)
-
-    token = f"RENEW_{time.time_ns()}"
-    target = f"TEMP/{token}"
-    program_line = f'10 PRINT "{token}"'
 
     session = ShellSession(args.port, args.baud, args.timeout)
     try:
@@ -92,36 +83,33 @@ def main(argv: list[str]) -> int:
         print_block("banner", banner)
         require("READY." in banner or banner.endswith("> "), "did not see shell prompt")
 
-        for command in ("NEW", program_line, f"SAVE {target}"):
-            result = session.command(command, args.timeout)
-            print_block(command, result.response)
-            require("OK" in result.response, f"{command} did not return OK")
+        help_result = session.command("HELP", args.timeout)
+        print_block("HELP", help_result.response)
+        help_tokens = set(help_result.response.split())
+        for removed in ("NEW", "LIST", "RUN", "LOAD", "SAVE", "DELETE", "PRINT", "DIR", "COPY", "MOVE", "RENAME"):
+            require(removed not in help_tokens, f"HELP still exposes {removed}")
 
-        result = session.command("DIR TEMP", args.timeout)
-        print_block("DIR TEMP before RENEW", result.raw)
-        require(token in result.raw, "marker file was not present before RENEW")
+        for line in (
+            "print",
+            "PRINT 1+2",
+            "10 PRINT \"HELLO\"",
+            "NEW",
+            "LIST",
+            "RUN",
+            "LOAD TEST",
+            "SAVE TEST",
+            "DELETE TEST",
+            "DIR",
+            "COPY A B",
+            "MOVE A B",
+            "RENAME A B",
+        ):
+            result = session.command(line, args.timeout)
+            print_block(line, result.raw)
+            require("UNKNOWN COMMAND" in result.raw, f"{line!r} was not rejected")
+            require("cpu_start:" not in result.raw, f"board rebooted while rejecting {line!r}")
 
-        renewed = session.renew_yes_yes(args.timeout)
-        print_block("RENEW Y/Y", renewed)
-        require("WARNING." in renewed, "RENEW warning was not shown")
-        require("Do you understand? (Y/N)" in renewed, "first RENEW confirmation was not shown")
-        require("Ready to continue? (Y/N)" in renewed, "second RENEW confirmation was not shown")
-        require("OK" in renewed, "RENEW did not report OK")
-
-        result = session.command("DIR TEMP", args.timeout)
-        print_block("DIR TEMP after RENEW", result.raw)
-        require(token not in result.raw, "marker file survived RENEW")
-
-        result = session.command("DIR", args.timeout)
-        print_block("DIR root after RENEW", result.raw)
-        for dirname in ("basic", "asm", "bin", "config", "data", "temp"):
-            require(dirname in result.raw, f"{dirname} directory missing after RENEW")
-
-        result = session.command("HELP", args.timeout)
-        print_block("HELP after RENEW", result.response)
-        require("RENEW" in result.response and "SAVE" in result.response, "shell did not recover after RENEW")
-
-        print(f"PASS: full RENEW wiped workspace marker and rebuilt layout for {target}")
+        print("PASS: BASIC commands are not exposed by the shell")
         return 0
     finally:
         session.close()

@@ -63,14 +63,21 @@ When implementing or planning, treat this file as the authoritative behavior con
 
 ## Current Sprint Routing
 
-- Sprint 002 Micro UNIX-style workspace shell is complete and board-tested.
+- Sprint 002 micro Linux workspace shell is complete and board-tested.
 - Use the local OpenC6 BIOS fork as a shell-structure reference only:
   - current-directory state
   - path resolver
   - command loop
   - small file command handlers
 - Do not import OpenC6 `format`, `boot ram`, `boot xip`, XIP, PXE, OTA, UART1-only routing, or payload ABI behavior into the C3 shell sprint.
-- Keep BASIC behavior stable while the next ASM capture work moves.
+- Keep the boot shell as a micro Linux workspace shell only: `HELP`, `PWD`,
+  `LS`, `CD`, `MKDIR`, `RMDIR`, `CAT`, `WRITE`, `RM`, `RM -R`, `CP`, `MV`,
+  and protected `RENEW`.
+- Active shell source and shell feature docs live in `source/shell/`.
+- Active build/test tooling lives in root `tools/`; `Old_version/` is legacy
+  reference only and is not the active build target.
+- BASIC parsing code remains in the tree for a later runtime/editor entry point,
+  but BASIC commands are not exposed by the boot shell.
 - ASM capture is the next candidate milestone; native execution remains blocked until a later guarded runtime sprint.
 - BLE HID keyboard support has a compiled input boundary and boot-keyboard mapper, but real keyboard pairing remains hardware-pending.
 

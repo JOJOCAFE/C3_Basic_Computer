@@ -2,10 +2,10 @@
 
 Status: Deferred; next candidate after completed Sprint 002 shell-first work.
 
-Scope when resumed: implement `ASM` block capture and deterministic validation in the current `Old_version` codebase, without enabling native execution.
+Scope when resumed: implement `ASM` block capture and deterministic validation in the active root codebase, without enabling native execution.
 
 Execution remains disabled until a later ASM/runtime sprint. Sprint 002 has
-completed the Micro UNIX-style workspace shell and input boundary.
+completed the micro Linux workspace shell and input boundary.
 
 Design reference: OpenC6 BIOS, forked at <https://github.com/JOJOCAFE/openc6-bios>, is useful now for shell structure only and later as a possible reference for a small host-to-native-code ABI jump table and serial payload handoff. Do not import that runtime model into Phase 2A. This sprint only captures, stores, and validates assembly source.
 
@@ -13,7 +13,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 1 — Baseline hardening
 
-- [ ] Rename implementation path target in docs to `Old_version/main` in all new edits.
+- [ ] Rename implementation path target in docs to root `main/` and `source/shell/` in all new edits.
 - [ ] Add note at top of sprint: `asm execution disabled until a later guarded runtime sprint`.
 - [ ] Pass criteria:
   - The repository documents current status as “ASM capture deferred after completed Sprint 002 shell-first work”.
@@ -21,7 +21,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 2 — Expose assembly metadata in BASIC API
 
-- [ ] File: `Old_version/main/basic.h`
+- [ ] File: `main/basic.h`
 - [ ] Add:
   - ASM block record type (source string + line range + status).
   - Program field for captured ASM source handle.
@@ -33,7 +33,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 3 — Track ASM blocks in runtime program model
 
-- [ ] File: `Old_version/main/basic.c`
+- [ ] File: `main/basic.c`
 - [ ] Add persistent storage for one ASM block per BASIC program:
   - start line
   - end line
@@ -44,7 +44,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 4 — Parse `ASM` keyword line in program entry
 
-- [ ] File: `Old_version/main/basic.c`
+- [ ] File: `main/basic.c`
 - [ ] In `basic_store_line`, detect `ASM` line and switch line consumption mode.
 - [ ] Pass criteria:
   - Entering `100 ASM` then lines, then `ENDASM` stores only raw ASM source, not as normal statement text.
@@ -52,7 +52,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 5 — Parse `ENDASM` terminal token
 
-- [ ] File: `Old_version/main/basic.c`
+- [ ] File: `main/basic.c`
 - [ ] Validate proper termination for capture mode:
   - `ENDASM` required.
   - `ENDASM` outside capture returns line-specific error.
@@ -62,7 +62,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 6 — Add ASM block file path policy
 
-- [ ] File: `Old_version/main/storage.h` and `Old_version/main/storage.c`
+- [ ] File: `main/storage.h` and `main/storage.c`
 - [ ] Add resolver for `storage` ASM artifacts:
   - BASIC sidecar naming rule (for example `BASIC/<name>.bas` + `ASM/<name>.asm`).
 - [ ] Pass criteria:
@@ -71,7 +71,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 7 — Save/load/store ASM companion files separately
 
-- [ ] File: `Old_version/main/basic.c`
+- [ ] File: `main/basic.c`
 - [ ] Add dedicated save/load helpers:
   - save asm body to `/ASM` path
   - load asm body with BASIC program
@@ -81,7 +81,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 8 — Add assembler validation pass (no execution)
 
-- [ ] File: `Old_version/main/basic.c` or new `Old_version/main/asm_validate.c`
+- [ ] File: `main/basic.c` or new `main/asm_validate.c`
 - [ ] Add deterministic tokenizer+validator pass that:
   - accepts a whitelist of opcodes first.
   - rejects others with reason.
@@ -91,7 +91,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 9 — Line-anchored error reporting
 
-- [ ] File: `Old_version/main/shell.c` and `Old_version/main/basic.c`
+- [ ] File: `source/shell/shell.c` and `main/basic.c`
 - [ ] Include line number context on validation failures.
 - [ ] Pass criteria:
   - Error format includes:
@@ -113,7 +113,7 @@ This sprint is intentionally granular: one checkpoint at a time, each with clear
 
 ## Task 11 — CLI/tool visibility for asm capture status
 
-- [ ] File: `Old_version/main/shell.c`
+- [ ] File: `source/shell/shell.c`
 - [ ] Update `HELP` output to include `asm` as phase-2 capture feature availability.
 - [ ] Pass criteria:
   - Running `help` lists the new assembly capture capability.

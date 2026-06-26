@@ -121,18 +121,35 @@ def main(argv: list[str]) -> int:
         for line in ("THIS IS NOT A COMMAND", "#$%^&*", "123ABC"):
             result = session.command(line, args.timeout)
             print_block(line, result.response)
-            require("UNKNOWN COMMAND" in result.response or "LINE ERROR" in result.response, f"{line!r} did not fail cleanly")
+            require("UNKNOWN COMMAND" in result.response, f"{line!r} did not fail cleanly")
 
-        for line, expected in (
-            ("SAVE ../../BAD", "Bad filename"),
-            ("LOAD ../BAD", "Bad filename"),
-            ("DELETE ../BAD", "Bad filename"),
-            ("DIR ..", "Bad path"),
-            ("DIR /../../", "Bad path"),
+        for line in (
+            "PRINT 1+2",
+            "10 PRINT \"NOPE\"",
+            "NEW",
+            "LIST",
+            "RUN",
+            "LOAD X",
+            "SAVE X",
+            "DELETE X",
+            "DIR",
+            "COPY A B",
+            "MOVE A B",
+            "RENAME A B",
         ):
             result = session.command(line, args.timeout)
             print_block(line, result.response)
-            require(expected in result.response, f"{line!r} did not reject unsafe path with {expected!r}")
+            require("UNKNOWN COMMAND" in result.response, f"{line!r} should not be exposed by the shell")
+
+        for line, expected in (
+            ("LS ..", "/basic"),
+            ("LS /../../", "/basic"),
+            ("RM /", "Bad path"),
+            ("RM -R /", "Bad path"),
+        ):
+            result = session.command(line, args.timeout)
+            print_block(line, result.response)
+            require(expected in result.response, f"{line!r} did not stay safely inside workspace")
 
         print_block("RENEW abort", "")
         self_check = session.write_raw_and_wait(b"RENEW\rN\r", args.timeout)
@@ -152,12 +169,10 @@ def main(argv: list[str]) -> int:
         require(binary_raw.endswith("> "), "binary-ish input did not return to prompt")
         require_responsive(session, args.timeout)
 
-        burst = b"NOPE\rDIR ..\rSAVE ../../BAD\rHELP\r"
+        burst = b"NOPE\rLS ..\rRM ../../BAD\rHELP\r"
         burst_raw = session.write_raw_and_wait(burst, args.timeout)
         print_block("burst commands", burst_raw)
         require("UNKNOWN COMMAND" in burst_raw, "burst did not process unknown command")
-        require("Bad path" in burst_raw, "burst did not reject unsafe DIR path")
-        require("Bad filename" in burst_raw, "burst did not reject unsafe SAVE path")
         require("HELP" in burst_raw and "PWD" in burst_raw and "RENEW" in burst_raw, "burst did not recover to HELP")
 
         require_responsive(session, args.timeout)

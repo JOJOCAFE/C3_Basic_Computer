@@ -1,3 +1,4 @@
+#include "bin.h"
 #include "shell.h"
 #include "storage.h"
 
@@ -14,5 +15,6 @@ void app_main(void)
         return;
     }
 
+    shell_register_external_exec(bin_exec_line);
     shell_run();
 }

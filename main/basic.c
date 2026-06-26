@@ -681,6 +681,10 @@ static esp_err_t execute_line(const basic_program_t *program, int *pc, const bas
 
     if (parse_keyword(&cursor, "PRINT")) {
         cursor = skip_ws(cursor);
+        if (*cursor == '\0') {
+            write_ln(io, "");
+            return ESP_OK;
+        }
         if (*cursor == '"') {
             cursor++;
             const char *end = strchr(cursor, '"');
@@ -966,8 +970,14 @@ esp_err_t basic_execute_immediate(basic_program_t *program, const char *line, co
     temp.number = 0;
     strncpy(temp.text, line, sizeof(temp.text) - 1);
 
-    basic_program_t scratch = {0};
-    scratch.lines[0] = temp;
-    scratch.count = 1;
-    return basic_run(&scratch, io);
+    basic_program_t *scratch = calloc(1, sizeof(*scratch));
+    if (!scratch) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    scratch->lines[0] = temp;
+    scratch->count = 1;
+    esp_err_t err = basic_run(scratch, io);
+    free(scratch);
+    return err;
 }

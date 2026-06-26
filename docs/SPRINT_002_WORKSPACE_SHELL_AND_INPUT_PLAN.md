@@ -15,7 +15,7 @@ This sprint plan connects three design decisions:
 1. The computer uses two internal storage partitions:
    - `system_fs` mounted at `/system`
    - `workspace_fs` mounted at `/workspace`
-2. The Shell should gain the useful structure of a small Micro UNIX-style workspace shell.
+2. The Shell should gain the useful structure of a small micro Linux workspace shell.
 3. Input must start with a PC terminal and later accept a BLE HID keyboard without changing shell logic.
 
 This sprint is complete. The shell-first track now gates the next work: ASM
@@ -135,15 +135,15 @@ or ASM work continues.
 
 | OpenC6 command | C3 shell command | Sprint 002 decision |
 | --- | --- | --- |
-| `help` | `HELP` / `help` | keep and update |
-| `ls [path]` | `DIR [path]`, `LS [path]` | add `LS` alias, keep `DIR` |
+| `help` | `HELP` | keep and update |
+| `ls [path]` | `LS [path]` | boot shell exposes `LS`; `DIR` is not exposed |
 | `cd <path>` | `CD <path>` | add |
 | `mkdir <path>` | `MKDIR <path>` | add |
 | `write [-f] <path> <text>` | `WRITE [-F] <path> <text>` | add after read/list commands |
-| `cp <src> <dst>` | `COPY <src> <dst>`, `CP <src> <dst>` | add after `WRITE`/`CAT` |
-| `mv <src> <dst>` | `MOVE <src> <dst>`, `MV <src> <dst>` | add after `COPY` |
+| `cp <src> <dst>` | `CP <src> <dst>` | boot shell exposes `CP`; `COPY` is not exposed |
+| `mv <src> <dst>` | `MV <src> <dst>` | boot shell exposes `MV`; `MOVE` is not exposed |
 | `cat <path>` | `CAT <path>` | add bounded read |
-| `rm <path>` | `DELETE <path>`, `RM <path>` | keep `DELETE`, add `RM` alias |
+| `rm <path>` | `RM <path>`, `RM -R <path>` | boot shell exposes `RM`; `DELETE` is not exposed |
 | `format` | `RENEW` only | reject public `FORMAT` |
 | `boot <ram\|xip>` | later ASM/runtime sprint | reject in Sprint 002 |
 | `exit` | no public exit yet | optional later `RESET`/`REBOOT` design |
@@ -157,6 +157,7 @@ PWD
 LS [path]
 CD <path>
 MKDIR <path>
+RMDIR <dir>
 CAT <file>
 ```
 
@@ -164,13 +165,14 @@ Acceptance:
 
 1. `PWD` prints the current workspace-relative directory.
 2. `LS` lists the current workspace directory.
-3. `DIR` remains supported as the friendly existing command.
+3. `LS` prints directories with a leading `/` and files without one.
 4. `CD basic` changes to `/workspace/basic`.
 5. `CD /asm` changes to `/workspace/asm`.
 6. `CD ..` never escapes `/workspace`.
 7. `MKDIR data/test` creates only under `/workspace`.
-8. `CAT basic/hello.bas` prints file content in bounded chunks.
-9. Bad paths return short text errors and keep the shell alive.
+8. `RMDIR temp/empty` removes an empty directory only.
+9. `CAT basic/hello.bas` prints file content in bounded chunks.
+10. Bad paths return short text errors and keep the shell alive.
 
 ## Second Workspace Shell Commands
 
@@ -179,8 +181,7 @@ Add only after the first group is stable:
 ```text
 WRITE [-F] <path> <text>
 RM <path>
-COPY <src> <dst>
-MOVE <src> <dst>
+RM -R <path>
 CP <src> <dst>
 MV <src> <dst>
 ```
@@ -189,7 +190,7 @@ Acceptance:
 
 1. `WRITE` creates text files only under `/workspace`.
 2. Overwrite behavior requires `-F` or another explicit design choice.
-3. `RM` is an alias for file deletion and does not remove non-empty directories.
+3. `RM` deletes files and does not remove directories unless `-R` is used.
 4. Copy and move operate only under `/workspace`.
 5. Directory copy is rejected until explicitly designed.
 6. Existing destination behavior is explicit.
@@ -251,7 +252,7 @@ These are the reference starting points for the BLE HID keyboard driver.
 File target:
 
 ```text
-Old_version/main/input.h
+main/input.h
 ```
 
 Fields:
@@ -273,7 +274,7 @@ Done when:
 File target:
 
 ```text
-Old_version/main/input_serial.c
+main/input_serial.c
 ```
 
 Done when:
@@ -287,7 +288,7 @@ Done when:
 File target:
 
 ```text
-Old_version/main/input_ble_hid.c
+main/input_ble_hid.c
 ```
 
 Done when:
@@ -303,14 +304,14 @@ Done when:
 2. Keep adversarial shell flood/path tests green.
 3. Add workspace path state and resolver.
 4. Add `PWD`.
-5. Add `LS` alias while preserving `DIR`.
+5. Add `LS` directory listing.
 6. Add `CD`.
 7. Add `MKDIR`.
 8. Add `CAT`.
 9. Add `WRITE`.
-10. Add `RM` alias while preserving `DELETE`.
-11. Add `COPY`/`CP`.
-12. Add `MOVE`/`MV`.
+10. Add `RM`, `RM -R`, and `RMDIR`.
+11. Add `CP`.
+12. Add `MV`.
 13. Refactor shell input behind an input service.
 14. Add BLE HID backend boundary only after USB serial input still passes smoke tests.
 
@@ -318,7 +319,7 @@ Completion note:
 
 1. Items 1-13 are implemented and board-tested over USB Serial/JTAG.
 2. Item 14 is reference-reviewed and compiled as an inactive boundary.
-3. Real BLE keyboard pairing is pending until keyboard hardware is available.
+3. Real BLE keyboard pairing is pending until a keyboard is available.
 
 ## Review Checkpoint
 
@@ -327,8 +328,8 @@ Current decisions:
 1. This sprint ran before Phase 2A ASM capture.
 2. Keep current C3 command matching case-insensitive.
 3. Document uppercase names first because current firmware presents uppercase commands.
-4. Add lowercase/Unix-style aliases where useful.
-5. `DIR` remains supported; `LS` becomes the Micro UNIX alias.
+4. Keep the boot shell as the implemented micro Linux command set only.
+5. Legacy aliases such as `DIR`, `COPY`, `MOVE`, and `DELETE` are not exposed.
 
-Sprint 002 is complete. Resume with guarded ASM capture or hardware BLE pairing
+Sprint 002 is complete. Resume with guarded ASM capture or BLE keyboard pairing
 when the required keyboard is available.

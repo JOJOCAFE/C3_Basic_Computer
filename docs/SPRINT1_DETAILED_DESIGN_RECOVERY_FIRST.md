@@ -1,5 +1,9 @@
 # Sprint 1 Detailed Design: Recovery-first, Dual-partition Workspace Architecture
 
+Status: Historical design record. The recovery-first architecture remains
+valid, but `Old_version/` is not the active build target. Current implementation
+work should happen at the repository root and under `source/`.
+
 ## Purpose
 
 This document is a review-first design for Sprint 1, focused on making command-out-of-scope behavior safe by separating immutable system data from recoverable workspace data.

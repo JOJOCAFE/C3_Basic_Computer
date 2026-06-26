@@ -152,6 +152,37 @@ Classic BASIC programs execute.
 
 # Milestone 5
 
+## Hardware Service Boundary
+
+### Goal
+
+Expose board hardware through reusable firmware services without adding
+hardware code to the shell core.
+
+### Status
+
+Completed for the `/bin/hardware` GPIO/ADC/I2C/SPI terminal adapter boundary.
+GPIO is board-tested; ADC/I2C/SPI are build-verified and ready for board smoke.
+
+### Done
+
+* `source/hardware` provides GPIO, ADC, I2C and SPI C APIs.
+* `source/bin` registers `/bin/hardware` GPIO, ADC, I2C, and SPI adapters in
+  the root firmware.
+* `source/shell` remains standalone without hardware/bin dependencies.
+* GPIO8 board test passed through the shell using generic GPIO commands.
+* Root firmware and standalone shell builds pass with the hardware adapters
+  wired.
+
+### Deferred
+
+* BASIC hardware statements should call `source/hardware`.
+* ADC/I2C/SPI board smoke should be run after flashing the wired adapters.
+
+---
+
+# Milestone 6
+
 ## BASIC Library
 
 ### Goal
@@ -173,7 +204,7 @@ The BASIC Library is operational.
 
 ---
 
-# Milestone 6
+# Milestone 7
 
 ## Native RISC-V Assembly
 

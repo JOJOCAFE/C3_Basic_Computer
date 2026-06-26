@@ -11,18 +11,21 @@ Core ideas:
 
 Current implementation context:
 - Phase 1 is now oriented around recoverability.
-- `Old_version` flash partitioning is split into two LittleFS areas:
+- Flash partitioning is split into two LittleFS areas:
   - `system_fs` (read-mostly runtime boundary)
   - `workspace_fs` (renewable user workspace)
 - Boot and protected recovery do not depend on workspace files. If `workspace_fs`
   is damaged, the shell still starts from the protected path and `RENEW` can
   rebuild workspace after two confirmations.
-- Sprint 002 Micro UNIX-style workspace shell is complete and board-tested,
+- Sprint 002 micro Linux workspace shell is complete and board-tested,
   using the local OpenC6 BIOS fork as a structure reference.
+- Hardware service package is complete for GPIO/ADC/I2C/SPI C APIs. The root
+  firmware exposes terminal hardware clients through `/bin/hardware`; BASIC
+  hardware access is deferred to a direct `source/hardware` API layer.
 - Native RISC-V assembly capture is the next candidate milestone. Native
   execution remains blocked until a later guarded runtime sprint.
 - BLE HID keyboard support has a compiled input boundary, but real keyboard
-  pairing remains hardware-pending.
+  pairing remains pending until a keyboard is available.
 
 ## Design snapshot
 
@@ -32,52 +35,121 @@ Current implementation context:
 - Renewed workspace is constrained to `workspace_fs`; system storage remains separate.
 - `RENEW` is protected behavior and formats only `workspace_fs`; there is no
   public `FORMAT` command in the shell sprint.
-- Command style: C3-compatible uppercase commands now, with Unix-style aliases
-  where they help (`DIR`/`LS`, `DELETE`/`RM`, `COPY`/`CP`, `MOVE`/`MV`)
-- Language-first interaction: BASIC and assembly are the main maker interfaces
+- Command style: micro Linux workspace shell commands, with `RENEW` as the
+  protected recovery exception.
+- BASIC and assembly remain main maker interfaces, but they are no longer
+  exposed directly from the boot shell.
 - Recoverability: system-protected runtime plus renewable user workspace
 
 ## Repository map
 
 - `docs/` — architecture, language, shell, filesystem, commands, and roadmap
-- `firmware/` — current firmware implementation
-- `Old_version/tools/` — current build scripts and serial smoke tests
-- `hardware/` — hardware-related notes/design artifacts
+- `main/` — ESP-IDF application component and shared firmware services
+- `source/shell/` — micro Linux boot shell source, command API, command list, and test matrix
+- `source/hardware/` — reusable GPIO, ADC, I2C, and SPI C service APIs
+- `source/bin/` — root-firmware `/bin` service adapters, including `/bin/hardware`
+- `tools/` — current build scripts and serial smoke tests
+- `hardware/` — board-level hardware notes/design artifacts
 - `assets/`, `examples/`, `test/` — project assets, samples, and checks
-- `Old_version/` — legacy/reference history and phase records
+- `Old_version/` — legacy/reference history only; not the active build target
 - `.codex/PROJECT_SKILL.md` — project skill contract (Manifesto + Design Principles)
 
 ## Build and flash
 
-The stable launcher is in `Old_version/tools/idf53.sh` and expects ESP-IDF 5.3.x:
+The stable launcher is in `tools/idf53.sh` and expects ESP-IDF 5.3.x:
 
 ```bash
-Old_version/tools/idf53.sh -C Old_version -B build-idf53 build
-Old_version/tools/idf53.sh -C Old_version -B build-idf53 -p /dev/ttyACM0 flash
+tools/idf53.sh -B build-c3-root build
+tools/idf53.sh -B build-c3-root -p /dev/ttyACM0 flash
 ```
 
 Common host-side checks:
 
 ```bash
-python3 Old_version/tools/dir_delete_smoke.py --port /dev/ttyACM0
-python3 Old_version/tools/load_list_run_smoke.py --port /dev/ttyACM0
-python3 Old_version/tools/reboot_persistence_smoke.py --port /dev/ttyACM0
-python3 Old_version/tools/workspace_shell_smoke.py --port /dev/ttyACM0
-python3 Old_version/tools/renew_full_smoke.py --port /dev/ttyACM0
-python3 Old_version/tools/adversarial_shell_smoke.py --port /dev/ttyACM0
+python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
+python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0
+python3 tools/renew_full_smoke.py --port /dev/ttyACM0
+python3 tools/adversarial_shell_smoke.py --port /dev/ttyACM0
+python3 tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 10
+python3 tools/bin_hardware_adc_smoke.py --port /dev/ttyACM0 --pin 0
+python3 tools/bin_hardware_i2c_smoke.py --port /dev/ttyACM0 --sda 6 --scl 7
+python3 tools/bin_hardware_spi_smoke.py --port /dev/ttyACM0 --mosi 4 --miso 5 --sclk 6 --cs 7
 ```
 
-## Documented command surface
+## Board-checked shell commands
 
-Current shell core:
-`HELP`, `PWD`, `DIR`, `LS`, `CD`, `MKDIR`, `CAT`, `WRITE`, `DELETE`, `RM`,
-`COPY`, `CP`, `MOVE`, `MV`, `LOAD`, `SAVE`, `NEW`, `LIST`, `RUN`, `RENEW`
+The boot shell is a micro Linux workspace shell. These commands are implemented
+in firmware and have been checked on the ESP32-C3 board over `/dev/ttyACM0`.
+
+| Command | Status | Behavior checked |
+| --- | --- | --- |
+| `HELP` | Works | Prints only the implemented shell commands. |
+| `PWD` | Works | Prints the current workspace-relative directory. |
+| `LS [path]` | Works | Lists workspace entries; directories are shown as `/name`, files as `name`. |
+| `CD <path>` | Works | Changes current workspace directory. |
+| `MKDIR <path>` | Works | Creates directories inside `/workspace`. |
+| `RMDIR <dir>` | Works | Removes an empty directory inside `/workspace`. |
+| `CAT <file>` | Works | Prints a text file. |
+| `WRITE <file> <text>` | Works | Creates a text file inside `/workspace`. |
+| `RM <file>` | Works | Removes files; directories are rejected unless `-R` is used. |
+| `RM -R <path>` | Works | Recursively removes a workspace file or directory subtree. |
+| `CP <src> <dst>` | Works | Copies files inside `/workspace`. |
+| `MV <src> <dst>` | Works | Moves or renames files and directories inside `/workspace`. |
+| `RENEW` | Works | Requires two confirmations, formats only `workspace_fs`, and rebuilds the workspace layout. |
+
+Checked with:
+
+```bash
+python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
+python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0
+python3 tools/renew_full_smoke.py --port /dev/ttyACM0
+python3 tools/adversarial_shell_smoke.py --port /dev/ttyACM0
+```
+
+Not exposed by the boot shell: `DIR`, `COPY`, `MOVE`, `RENAME`, `DELETE`,
+`LOAD`, `SAVE`, `NEW`, `LIST`, `RUN`, and direct BASIC statements such as
+`PRINT`.
 
 Later workspace/system/monitor targets:
 `EDIT`, `BASIC`, `ASM`, `VERSION`, `MEMORY`, `DATE`, `TIME`, `DIAGNOSTICS`,
 `REG`, `MEM`, `DUMP`, `DISASM`, `STEP`, `BREAK`
 
 Only implemented commands should appear in firmware `HELP`.
+
+## Board-checked hardware commands
+
+Hardware terminal commands are `/bin` services above the shell. They are not
+shell built-ins and do not appear in `HELP`.
+
+Current hardware services:
+
+```text
+/bin/hardware gpio in -p <gpio> [--pull none|up|down|updown]
+/bin/hardware gpio out -p <gpio> [-v 0|1] [--open-drain]
+/bin/hardware gpio read -p <gpio>
+/bin/hardware gpio write -p <gpio> -v 0|1
+/bin/hardware gpio toggle -p <gpio>
+/bin/hardware adc read -p <gpio>
+/bin/hardware i2c config -sda <gpio> -scl <gpio> [-f <hz>] [--pullups]
+/bin/hardware i2c probe -a <addr>
+/bin/hardware i2c scan
+/bin/hardware spi config -mosi <gpio> -miso <gpio> -sclk <gpio> [-cs <gpio>] [-f <hz>] [-m <mode>]
+/bin/hardware spi xfer -tx <hexbytes>
+```
+
+The current ESP32-C3 board blue LED is on GPIO8 and turns off at level `1`:
+
+```text
+/bin/hardware gpio out -p 8 -v 1
+/bin/hardware gpio write -p 8 -v 1
+```
+
+Detailed hardware docs:
+
+- [`source/hardware/README.md`](/home/jo/Codex/C3_Basic_Computer/source/hardware/README.md)
+- [`source/hardware/COMMANDS.md`](/home/jo/Codex/C3_Basic_Computer/source/hardware/COMMANDS.md)
+- [`source/hardware/VERIFICATION.md`](/home/jo/Codex/C3_Basic_Computer/source/hardware/VERIFICATION.md)
+- [`docs/SPRINT_003_BASIC_HARDWARE_API.md`](/home/jo/Codex/C3_Basic_Computer/docs/SPRINT_003_BASIC_HARDWARE_API.md)
 
 ## Strict implementation checklist
 
@@ -91,16 +163,18 @@ Completed high-priority implementation plan:
 
 Sprint 002 shell-first work is complete. Resume in the order below.
 
-1. **Completed – Micro UNIX-style workspace shell**
-   - `PWD`, `CD`, `LS`/`DIR`, `MKDIR`, `CAT`, `WRITE`, `RM`/`DELETE`,
-     `COPY`/`CP`, and `MOVE`/`MV` are implemented.
+1. **Completed - micro Linux workspace shell**
+   - `HELP`, `PWD`, `CD`, `LS`, `MKDIR`, `RMDIR`, `CAT`, `WRITE`, `RM`,
+     `RM -R`, `CP`, `MV`, and `RENEW` are implemented.
    - Keep all file commands constrained to `/workspace`.
+   - Keep BASIC commands out of the boot shell until a separate BASIC runtime
+     entry point is designed.
    - Keep `FORMAT`, `BOOT`, `RAMBOOT`, `XIP`, `PXE`, and OTA out of this sprint.
 
 2. **Completed – Input boundary**
    - PC terminal over USB Serial/JTAG is the active backend.
    - Shell input is behind an input service.
-   - BLE HID keyboard backend boundary exists; real pairing waits for hardware.
+   - BLE HID keyboard backend boundary exists; real pairing waits for a keyboard.
 
 3. **Next candidate – ASM capture boundary**
    - Parse and capture `ASM`/`ENDASM` blocks from BASIC safely.
@@ -110,7 +184,8 @@ Sprint 002 shell-first work is complete. Resume in the order below.
 4. **Later – Runtime, monitor, and capability expansion**
    - Add `CALLASM()`, standalone `.asm` execution, and monitor commands only after
      capture/validation passes.
-   - Add graphics, sound, GPIO/motion, then standalone UX hardware integrations as separate milestones.
+   - Add graphics, sound, BASIC GPIO/motion, then standalone UX hardware
+     integrations as separate milestones.
 
 ## UX and behavior goals
 

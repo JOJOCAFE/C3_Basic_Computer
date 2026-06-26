@@ -1,10 +1,15 @@
 # Sprint 1: Recovery-first Ticket List (Fine-grained Review Units)
 
+Status: Historical planning record. `Old_version/` is no longer the active
+implementation target. Current firmware lives at the repository root, reusable
+shell code lives in `source/shell`, hardware services live in
+`source/hardware`, and `/bin` service adapters live in `source/bin`.
+
 Use this as the execution queue and review ledger. Keep each ticket small and verify before moving to the next.
 
 Status terms:
 
-- `DONE (code-reviewed)`: implementation is present in `Old_version/` and has been checked against the ticket acceptance text.
+- `DONE (code-reviewed)`: historical implementation was present in `Old_version/` and checked against the ticket acceptance text at the time of the Sprint 1 review.
 - `PARTIAL`: implementation is present but one acceptance detail still needs cleanup or proof.
 - `TODO`: not implemented.
 

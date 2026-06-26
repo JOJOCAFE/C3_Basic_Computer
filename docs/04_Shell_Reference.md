@@ -52,15 +52,14 @@ to display it.
 
 ## Command Style
 
-The Shell follows simple C3 command conventions now and adds Unix-style aliases
-where they make the workspace easier to use.
+The Shell is a small micro Linux workspace shell.
 
 Rules
 
-* document C3 commands in uppercase first
+* document shell commands in uppercase
 * accept command keywords case-insensitively in firmware
 * space-separated arguments
-* Unix-style paths
+* Linux-style paths
 * keep file commands inside `/workspace`
 
 Examples
@@ -74,7 +73,7 @@ CAT hello.bas
 
 WRITE temp/note.txt hello
 
-RUN
+CP temp/note.txt temp/copy.txt
 ```
 
 ---
@@ -88,13 +87,15 @@ Default structure
 ```text
 /
 
-basic/
-asm/
-bin/
-config/
-data/
-temp/
+/basic
+/asm
+/bin
+/config
+/data
+/temp
 ```
+
+Directory listings print directories with a leading `/` and files without one.
 
 ---
 
@@ -119,48 +120,30 @@ HELP
 
 PWD
 
-DIR
-
 LS
 
 CD
 
 MKDIR
 
+RMDIR
+
 CAT
 
 WRITE
 
-DELETE
-
 RM
 
-COPY
-
 CP
-
-MOVE
 
 MV
 ```
 
 ---
 
-## Workspace Commands
+## Deferred Workspace Commands
 
-Current BASIC workspace commands preserved by the shell:
-
-```text
-NEW
-
-LIST
-
-RUN
-
-LOAD
-
-SAVE
-```
+BASIC is not exposed directly from the boot shell.
 
 Deferred workspace commands:
 
@@ -175,11 +158,15 @@ ASM
 Examples
 
 ```text
-> SAVE basic/hello.bas
+> WRITE basic/hello.bas 10 PRINT "HELLO"
 
-> LOAD basic/hello.bas
+> CAT basic/hello.bas
 
-> RUN
+> CP basic/hello.bas basic/copy.bas
+
+> MV basic/copy.bas basic/renamed.bas
+
+> RMDIR temp/empty
 ```
 
 ASM capture is the next candidate milestone. Native execution remains blocked
@@ -189,27 +176,43 @@ until a later guarded runtime sprint.
 
 ## System Commands
 
+Only one system command is exposed by the current boot shell:
+
 ```text
-version
-
-memory
-
-date
-
-time
-
-renew
-
-update
-
-diagnostics
+RENEW
 ```
 
-These commands provide information about the computer and manage the system.
-Only implemented commands should appear in firmware `HELP`; broader system
-commands are deferred unless listed in Sprint 002.
+`RENEW` asks twice, formats only `workspace_fs`, recreates the default
+workspace layout, and returns to the prompt. Broader system information
+commands such as `VERSION`, `MEMORY`, `DATE`, `TIME`, and `DIAGNOSTICS` are
+deferred and must not appear in firmware `HELP` until implemented.
 
-Detailed behavior is documented in **10 System Commands**.
+---
+
+## `/bin` Services
+
+The root firmware can register external `/bin` services above the shell. These
+services are not shell built-ins and do not appear in `HELP`.
+
+Current `/bin/hardware` service:
+
+```text
+/bin/hardware gpio in -p <gpio> [--pull none|up|down|updown]
+/bin/hardware gpio out -p <gpio> [-v 0|1] [--open-drain]
+/bin/hardware gpio read -p <gpio>
+/bin/hardware gpio write -p <gpio> -v 0|1
+/bin/hardware gpio toggle -p <gpio>
+/bin/hardware adc read -p <gpio>
+/bin/hardware i2c config -sda <gpio> -scl <gpio> [-f <hz>] [--pullups]
+/bin/hardware i2c probe -a <addr>
+/bin/hardware i2c scan
+/bin/hardware spi config -mosi <gpio> -miso <gpio> -sclk <gpio> [-cs <gpio>] [-f <hz>] [-m <mode>]
+/bin/hardware spi xfer -tx <hexbytes>
+```
+
+The hardware implementation lives in `source/hardware` and the text command
+adapter lives in `source/bin`. The standalone `source/shell` project does not
+link either package.
 
 ---
 
@@ -240,52 +243,16 @@ Detailed behavior is documented in the Monitor documentation.
 
 ## Help
 
-HELP is the built-in reference system.
-
-Every public command supports
+`HELP` prints the implemented firmware command list only:
 
 ```text
-help <command>
+HELP PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV RENEW
 ```
 
-Examples
-
-```text
-help
-
-help ls
-
-help run
-
-help version
-
-help reg
-
-help graphics
-
-help sound
-
-help asm
-```
-
-Example
-
-```text
-> help ls
-
-ls
-
-List files in the current directory.
-
-Example
-
-ls
-
-See also
-
-pwd
-cd
-```
+Per-command help is deferred. BASIC, ASM, system information, graphics, sound,
+hardware services, and monitor commands must stay out of `HELP` until their
+runtime behavior is implemented and tested as shell commands. Current hardware
+access remains a `/bin` service.
 
 ---
 

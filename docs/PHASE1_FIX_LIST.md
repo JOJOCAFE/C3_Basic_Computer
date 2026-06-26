@@ -1,5 +1,10 @@
 # Phase 1 Fix List (from Compliance Matrix)
 
+Status: Historical recovery-first fix list. It references `Old_version/`
+because it predates the root project move. Current active implementation lives
+at the repository root, with shell code in `source/shell`, hardware services in
+`source/hardware`, and `/bin` adapters in `source/bin`.
+
 Goal: remove high-risk behavior before assembly work, starting with recoverability.
 
 ## Scope (Sprint 1)

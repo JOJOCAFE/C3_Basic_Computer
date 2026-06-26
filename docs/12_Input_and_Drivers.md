@@ -206,6 +206,43 @@ Drivers belong below the input model.
 
 Shell, Workspace and BASIC should never depend on a specific keyboard driver.
 
+## Hardware Service Boundary
+
+General board hardware access is separate from keyboard input.
+
+Current implementation:
+
+```text
+source/hardware
+
+GPIO / ADC / I2C / SPI C service APIs
+
+source/bin
+
+/bin/hardware terminal command adapters
+```
+
+The shell can call `/bin/hardware` as a terminal command, but the hardware
+code is not part of the shell core. Future BASIC and monitor code should call
+the same `source/hardware` APIs or use the shell command API when a text command
+path is required.
+
+The current hardware terminal command families are:
+
+```text
+/bin/hardware gpio in -p <gpio>
+/bin/hardware gpio out -p <gpio> [-v 0|1]
+/bin/hardware gpio read -p <gpio>
+/bin/hardware gpio write -p <gpio> -v 0|1
+/bin/hardware gpio toggle -p <gpio>
+/bin/hardware adc read -p <gpio>
+/bin/hardware i2c config -sda <gpio> -scl <gpio> [-f <hz>] [--pullups]
+/bin/hardware i2c probe -a <addr>
+/bin/hardware i2c scan
+/bin/hardware spi config -mosi <gpio> -miso <gpio> -sclk <gpio> [-cs <gpio>] [-f <hz>] [-m <mode>]
+/bin/hardware spi xfer -tx <hexbytes>
+```
+
 ---
 
 ## Future Input

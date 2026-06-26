@@ -97,7 +97,7 @@ def main(argv: list[str]) -> int:
         result = session.command("LS", args.timeout)
         print_block("LS", result.raw)
         for dirname_root in ("basic", "asm", "bin", "config", "data", "temp"):
-            require(dirname_root in result.raw, f"LS root missing {dirname_root}")
+            require(f"/{dirname_root}" in result.raw, f"LS root missing directory marker for {dirname_root}")
 
         result = session.command(f"MKDIR {dirname}", args.timeout)
         print_block(f"MKDIR {dirname}", result.response)
@@ -119,28 +119,81 @@ def main(argv: list[str]) -> int:
         print_block("CAT note.txt", result.raw)
         require("hello-from-c3" in result.raw, "CAT did not print written text")
 
-        result = session.command("COPY note.txt copy.txt", args.timeout)
-        print_block("COPY note.txt copy.txt", result.response)
-        require_ok(result, "COPY note.txt copy.txt")
+        result = session.command("MKDIR empty-dir", args.timeout)
+        print_block("MKDIR empty-dir", result.response)
+        require_ok(result, "MKDIR empty-dir")
+
+        result = session.command("RMDIR empty-dir", args.timeout)
+        print_block("RMDIR empty-dir", result.response)
+        require_ok(result, "RMDIR empty-dir")
+
+        result = session.command("CP note.txt copy.txt", args.timeout)
+        print_block("CP note.txt copy.txt", result.response)
+        require_ok(result, "CP note.txt copy.txt")
 
         result = session.command("CP note.txt alias.txt", args.timeout)
         print_block("CP note.txt alias.txt", result.response)
         require_ok(result, "CP note.txt alias.txt")
 
-        result = session.command("MOVE copy.txt moved.txt", args.timeout)
-        print_block("MOVE copy.txt moved.txt", result.response)
-        require_ok(result, "MOVE copy.txt moved.txt")
+        result = session.command("MV copy.txt moved.txt", args.timeout)
+        print_block("MV copy.txt moved.txt", result.response)
+        require_ok(result, "MV copy.txt moved.txt")
 
         result = session.command("MV alias.txt alias-moved.txt", args.timeout)
         print_block("MV alias.txt alias-moved.txt", result.response)
         require_ok(result, "MV alias.txt alias-moved.txt")
 
+        result = session.command("MKDIR move-dir", args.timeout)
+        print_block("MKDIR move-dir", result.response)
+        require_ok(result, "MKDIR move-dir")
+
+        result = session.command("WRITE move-dir/nested.txt mv-dir-ok", args.timeout)
+        print_block("WRITE move-dir/nested.txt", result.response)
+        require_ok(result, "WRITE move-dir/nested.txt")
+
+        result = session.command("MV move-dir moved-dir", args.timeout)
+        print_block("MV move-dir moved-dir", result.response)
+        require_ok(result, "MV move-dir moved-dir")
+
+        result = session.command("CAT moved-dir/nested.txt", args.timeout)
+        print_block("CAT moved-dir/nested.txt", result.raw)
+        require("mv-dir-ok" in result.raw, "MV directory target did not preserve child file")
+
+        result = session.command("RMDIR moved-dir", args.timeout)
+        print_block("RMDIR moved-dir", result.response)
+        require("failed" in result.response.lower(), "RMDIR removed a non-empty directory")
+
+        result = session.command("MKDIR tree", args.timeout)
+        print_block("MKDIR tree", result.response)
+        require_ok(result, "MKDIR tree")
+
+        result = session.command("MKDIR tree/child", args.timeout)
+        print_block("MKDIR tree/child", result.response)
+        require_ok(result, "MKDIR tree/child")
+
+        result = session.command("WRITE tree/child/leaf.txt recursive-delete-ok", args.timeout)
+        print_block("WRITE tree/child/leaf.txt", result.response)
+        require_ok(result, "WRITE tree/child/leaf.txt")
+
+        result = session.command("RM -R tree", args.timeout)
+        print_block("RM -R tree", result.response)
+        require_ok(result, "RM -R tree")
+
         result = session.command("LS", args.timeout)
         print_block("LS working dir", result.raw)
         for filename in ("note.txt", "moved.txt", "alias-moved.txt"):
             require(filename in result.raw, f"LS missing {filename}")
-        require("copy.txt" not in result.raw, "MOVE left copy.txt behind")
+            require(f"/{filename}" not in result.raw, f"LS marked file {filename} as a directory")
+        require("/moved-dir" in result.raw, "LS missing moved directory marker")
+        require("/move-dir" not in result.raw, "MV left source directory behind")
+        require("/tree" not in result.raw, "RM -R left recursive directory behind")
+        require("/empty-dir" not in result.raw, "RMDIR left empty directory behind")
+        require("copy.txt" not in result.raw, "MV left copy.txt behind")
         require("alias.txt" not in result.raw, "MV left alias.txt behind")
+
+        result = session.command("RM -R moved-dir", args.timeout)
+        print_block("RM -R moved-dir", result.response)
+        require_ok(result, "RM -R moved-dir")
 
         for filename in ("note.txt", "moved.txt", "alias-moved.txt"):
             result = session.command(f"RM {filename}", args.timeout)

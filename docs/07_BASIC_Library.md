@@ -214,6 +214,11 @@ ACCELZ()
 
 ## GPIO
 
+Status: Deferred for BASIC. The reusable firmware hardware API exists in
+`source/hardware`, and terminal hardware access is currently available through
+`/bin/hardware` GPIO/ADC/I2C/SPI adapters. BASIC statements below are the
+planned BASIC-facing surface, not implemented boot-shell commands.
+
 Statements
 
 ```text

@@ -23,11 +23,11 @@ must receive keyboard reports rather than advertise itself as a keyboard.
 Files:
 
 ```text
-Old_version/main/input.h
-Old_version/main/input_serial.c
-Old_version/main/input_ble_hid.c
-Old_version/main/shell.c
-Old_version/main/CMakeLists.txt
+main/input.h
+main/input_serial.c
+main/input_ble_hid.c
+source/shell/shell.c
+main/CMakeLists.txt
 ```
 
 Current active backend:

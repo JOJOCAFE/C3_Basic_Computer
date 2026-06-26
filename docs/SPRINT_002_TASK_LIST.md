@@ -3,15 +3,26 @@
 Status: Complete
 
 Use this as the completion record for the shell-first partition + keyboard
-track. BASIC and ASM expansion were deferred until this Micro UNIX-style shell
+track. BASIC and ASM expansion were deferred until this micro Linux shell
 surface became complete and board-tested.
+
+Current root regression set:
+
+```bash
+tools/idf53.sh -B build-c3-root build
+python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
+python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0
+python3 tools/renew_full_smoke.py --port /dev/ttyACM0
+python3 tools/adversarial_shell_smoke.py --port /dev/ttyACM0
+python3 tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 10
+```
 
 ## S2-T0 - Close partition renew observability
 
 Status: DONE (code-reviewed, revised for protected renew path)
 
 - Files:
-  - `Old_version/main/storage.c`
+  - `main/storage.c`
   - `docs/SPRINT1_TICKET_LIST.md`
 - Action:
   1. Add positive logs for workspace renew sub-steps.
@@ -27,10 +38,10 @@ Status: DONE (code-reviewed, revised for protected renew path)
 Status: DONE (code-reviewed)
 
 - Files:
-  - `Old_version/main/storage.c`
-  - `Old_version/main/storage.h`
-  - `Old_version/main/shell.c`
-  - `Old_version/tools/renew_full_smoke.py`
+  - `main/storage.c`
+  - `main/storage.h`
+  - `source/shell/shell.c`
+  - `tools/renew_full_smoke.py`
 - Action:
   1. Keep `system_fs` mounted read-only from shell context.
   2. Disable automatic workspace formatting during boot.
@@ -42,15 +53,15 @@ Status: DONE (code-reviewed)
   - If workspace is bad, shell prints `WORKSPACE ERROR. Run RENEW to rebuild workspace.`
   - `RENEW` formats only `workspace_fs` after both confirmations.
 - Board verification:
-  - 2026-06-26: flashed `build-c3-basic` to `/dev/ttyACM0`.
-  - 2026-06-26: healthy-workspace `dir_delete_smoke.py` passed.
-  - 2026-06-26: healthy-workspace `load_list_run_smoke.py` passed.
-  - 2026-06-26: healthy-workspace `reboot_persistence_smoke.py` passed.
+  - 2026-06-26: flashed `build-c3-root` to `/dev/ttyACM0`.
+  - 2026-06-26: healthy-workspace `workspace_shell_smoke.py` passed.
+  - 2026-06-26: healthy-workspace `no_basic_shell_smoke.py` passed.
+  - 2026-06-26: healthy-workspace `renew_full_smoke.py` passed.
   - 2026-06-26: healthy-workspace `adversarial_shell_smoke.py` passed.
   - 2026-06-26: destructive full `RENEW` test passed with `renew_full_smoke.py`.
-  - 2026-06-26: post-RENEW `dir_delete_smoke.py` passed.
-  - 2026-06-26: post-RENEW `load_list_run_smoke.py` passed.
-  - 2026-06-26: post-RENEW `reboot_persistence_smoke.py` passed.
+  - 2026-06-26: post-RENEW `workspace_shell_smoke.py` passed.
+  - 2026-06-26: post-RENEW `no_basic_shell_smoke.py` passed.
+  - 2026-06-26: post-RENEW `renew_full_smoke.py` passed.
   - Damaged-workspace boot simulation is still a future destructive/corruption test.
 
 ## S2-T1 - Workspace shell path state design
@@ -58,9 +69,9 @@ Status: DONE (code-reviewed)
 Status: DONE (code-reviewed)
 
 - Files:
-  - `Old_version/main/storage.h`
-  - `Old_version/main/storage.c`
-  - `Old_version/main/shell.c`
+  - `main/storage.h`
+  - `main/storage.c`
+  - `source/shell/shell.c`
 - Action:
   1. Add shell current-directory state under `/workspace`.
   2. Add path resolver for workspace shell commands.
@@ -68,17 +79,18 @@ Status: DONE (code-reviewed)
 - Done when:
   - `/`, `.`, and `..` resolve safely.
   - `CD ..` from workspace root stays at workspace root.
-  - Existing `LOAD`, `SAVE`, `DELETE`, `DIR`, and `RENEW` behavior remains unchanged.
+  - `RENEW` behavior remains unchanged.
+  - BASIC commands and legacy aliases remain outside the boot shell.
 - Evidence:
   - `storage_normalize_workspace_path()` resolves workspace-relative paths without escaping `/workspace`.
   - `storage_resolve_workspace_path()` maps normalized workspace paths under `/workspace`.
   - Shell current-directory state initializes to `/`.
-  - Existing command dispatch still uses the previous `LOAD`, `SAVE`, `DELETE`, `DIR`, and `RENEW` paths.
+  - Shell command dispatch uses the micro Linux command set and protected `RENEW`.
 - Board verification:
-  - 2026-06-26: flashed `build-c3-basic` to `/dev/ttyACM0`.
-  - 2026-06-26: `dir_delete_smoke.py` passed.
-  - 2026-06-26: `load_list_run_smoke.py` passed.
-  - 2026-06-26: `reboot_persistence_smoke.py` passed.
+  - 2026-06-26: flashed `build-c3-root` to `/dev/ttyACM0`.
+  - 2026-06-26: `workspace_shell_smoke.py` passed.
+  - 2026-06-26: `no_basic_shell_smoke.py` passed.
+  - 2026-06-26: `renew_full_smoke.py` passed.
   - 2026-06-26: `adversarial_shell_smoke.py` passed after fixes for malformed numeric input and overlong serial lines.
   - `RENEW` was not run in the smoke pass because it intentionally deletes workspace data.
 
@@ -87,9 +99,9 @@ Status: DONE (code-reviewed)
 Status: DONE (board-tested)
 
 - Files:
-  - `Old_version/main/basic.c`
-  - `Old_version/main/shell.c`
-  - `Old_version/tools/adversarial_shell_smoke.py`
+  - `main/basic.c`
+  - `source/shell/shell.c`
+  - `tools/adversarial_shell_smoke.py`
 - Action:
   1. Inject nonsense commands, unsafe paths, RENEW abort input, overlong serial lines, binary-ish input, and fast command bursts.
   2. Fix any shell/parser behavior that accepts malformed input or loses prompt synchronization.
@@ -97,21 +109,21 @@ Status: DONE (board-tested)
   - `123ABC` was accepted as a BASIC line because numeric line parsing did not require whitespace or end-of-line after the line number.
   - Overlong serial input was split into multiple commands because the line reader returned when its buffer filled instead of draining to CR/LF.
 - Done when:
-  - Malformed numeric input returns `LINE ERROR`.
+  - Malformed numeric input returns `UNKNOWN COMMAND`.
   - Overlong input returns one clean shell error and the next prompt remains synchronized.
-  - Existing storage and BASIC smoke tests still pass on the board.
+  - Existing storage, no-BASIC-boundary, and renew smoke tests still pass on the board.
 - Board verification:
-  - 2026-06-26: flashed `build-c3-basic` to `/dev/ttyACM0`.
+  - 2026-06-26: flashed `build-c3-root` to `/dev/ttyACM0`.
   - 2026-06-26: `adversarial_shell_smoke.py` passed.
-  - 2026-06-26: `dir_delete_smoke.py` passed.
-  - 2026-06-26: `load_list_run_smoke.py` passed.
-  - 2026-06-26: `reboot_persistence_smoke.py` passed.
+  - 2026-06-26: `workspace_shell_smoke.py` passed.
+  - 2026-06-26: `no_basic_shell_smoke.py` passed.
+  - 2026-06-26: `renew_full_smoke.py` passed.
 
 ## S2-T2 - Add PWD
 
 Status: DONE (board-tested)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Action:
   1. Add `PWD` command.
   2. Print current workspace-relative path.
@@ -125,29 +137,29 @@ Status: DONE (board-tested)
 - Board verification:
   - 2026-06-26: `workspace_shell_smoke.py` passed.
 
-## S2-T3 - Add LS alias and current-directory listing
+## S2-T3 - Add LS and current-directory listing
 
 Status: DONE (board-tested)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Action:
-  1. Add `LS [path]` as the Micro UNIX-style alias.
-  2. Preserve existing `DIR [path]`.
+  1. Add `LS [path]` as the micro Linux-style listing command.
+  2. Do not expose `DIR` in the boot shell.
   3. Let no-argument `LS` list the current workspace directory.
 - Done when:
   - `LS` at boot lists `/workspace`.
   - `LS basic` lists `/workspace/basic`.
-  - `DIR` behavior remains compatible with existing smoke tests.
+  - `DIR` returns `UNKNOWN COMMAND`.
   - Bad paths print a short error and keep shell responsive.
 - Board verification:
   - 2026-06-26: `workspace_shell_smoke.py` passed.
-  - 2026-06-26: `dir_delete_smoke.py` passed.
+  - 2026-06-26: `workspace_shell_smoke.py` passed.
 
 ## S2-T4 - Add CD
 
 Status: DONE (board-tested)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Action:
   1. Add `CD <path>` command.
   2. Support absolute workspace paths and relative paths.
@@ -163,7 +175,7 @@ Status: DONE (board-tested)
 
 Status: DONE (board-tested)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Action:
   1. Add `MKDIR <path>` command.
   2. Create directories only under `/workspace`.
@@ -177,7 +189,7 @@ Status: DONE (board-tested)
 
 Status: DONE (board-tested)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Action:
   1. Add `CAT <file>` command.
   2. Print file content in bounded chunks.
@@ -192,7 +204,7 @@ Status: DONE (board-tested)
 
 Status: DONE (board-tested)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Reference:
   - OpenC6 `write [-f] <path> <txt>`
 - Action:
@@ -207,36 +219,36 @@ Status: DONE (board-tested)
 - Board verification:
   - 2026-06-26: `workspace_shell_smoke.py` passed.
 
-## S2-T8 - Add RM alias and delete policy
+## S2-T8 - Add RM and delete policy
 
 Status: DONE (board-tested)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Reference:
   - OpenC6 `rm <path>`
 - Action:
-  1. Add `RM <path>` as the Micro UNIX-style alias.
-  2. Preserve existing `DELETE <path>`.
+  1. Add `RM <path>` as the micro Linux-style delete command.
+  2. Add `RM -R <path>` for explicit recursive removal.
   3. Keep directory deletion policy explicit.
 - Done when:
   - `RM temp/hello.txt` deletes a file.
-  - `DELETE temp/hello.txt` still works.
-  - Non-empty directory deletion is rejected unless separately designed.
+  - `DELETE temp/hello.txt` returns `UNKNOWN COMMAND`.
+  - Non-empty directory deletion requires `RM -R`.
   - Unsafe paths are rejected.
 - Board verification:
   - 2026-06-26: `workspace_shell_smoke.py` passed.
-  - 2026-06-26: `dir_delete_smoke.py` passed.
+  - 2026-06-26: `workspace_shell_smoke.py` passed.
 
-## S2-T9 - Add COPY / CP
+## S2-T9 - Add CP
 
 Status: DONE (board-tested)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Reference:
   - OpenC6 `cp <src> <dst_path>`
 - Action:
-  1. Add `COPY <src> <dst>`.
-  2. Add `CP <src> <dst>` alias.
+  1. Add `CP <src> <dst>`.
+  2. Keep `COPY` out of the boot shell.
   3. Copy files in bounded chunks.
 - Done when:
   - Copy operates only under `/workspace`.
@@ -246,26 +258,26 @@ Status: DONE (board-tested)
 - Board verification:
   - 2026-06-26: `workspace_shell_smoke.py` passed.
 
-## S2-T10 - Add MOVE / MV
+## S2-T10 - Add MV
 
 Status: DONE (board-tested)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Reference:
   - OpenC6 `mv <src> <dst_path>`
 - Action:
-  1. Add `MOVE <src> <dst>`.
-  2. Add `MV <src> <dst>` alias.
+  1. Add `MV <src> <dst>`.
+  2. Keep `MOVE` and `RENAME` out of the boot shell.
   3. Move or rename files without crossing the workspace boundary.
 - Done when:
   - Move operates only under `/workspace`.
-  - Directory move is rejected until separately designed.
+  - Directory move/rename works inside `/workspace`.
   - Existing destination behavior is explicit.
   - Source is gone and destination exists after successful move.
 - Board verification:
   - 2026-06-26: `workspace_shell_smoke.py` passed.
-  - 2026-06-26: `load_list_run_smoke.py` passed.
-  - 2026-06-26: `reboot_persistence_smoke.py` passed.
+  - 2026-06-26: `no_basic_shell_smoke.py` passed.
+  - 2026-06-26: `renew_full_smoke.py` passed.
   - 2026-06-26: `adversarial_shell_smoke.py` passed after HELP expectation update.
 
 ## S2-T11 - Update HELP and command reference
@@ -273,41 +285,42 @@ Status: DONE (board-tested)
 Status: DONE (board-tested)
 
 - Files:
-  - `Old_version/main/shell.c`
+  - `source/shell/shell.c`
   - `docs/04_Shell_Reference.md`
-  - `Old_version/README.md`
+  - `README.md`
 - Action:
   1. Make `HELP` show the implemented shell command set.
   2. Mark BASIC and ASM expansion as later work.
-  3. Keep command naming clear: C3 uppercase first, Unix aliases where implemented.
+  3. Keep command naming clear: micro Linux command names only in the boot shell.
 - Done when:
   - `HELP` output matches implemented commands.
   - Docs do not claim unimplemented ASM/native execution as current.
 - Evidence:
-  - `Old_version/main/shell.c` HELP output lists the implemented S2 shell command set.
-  - `docs/04_Shell_Reference.md` lists C3 uppercase commands and Unix aliases.
-  - `Old_version/README.md` lists the implemented shell commands.
+  - `source/shell/shell.c` HELP output lists the implemented S2 shell command set.
+  - `docs/04_Shell_Reference.md` lists the implemented micro Linux commands.
+  - `README.md` lists the implemented shell commands.
 - Board verification:
-  - 2026-06-26: `dir_delete_smoke.py` observed updated HELP output.
+  - 2026-06-26: `workspace_shell_smoke.py` observed updated HELP output.
   - 2026-06-26: `adversarial_shell_smoke.py` passed with updated HELP output.
 
 ## S2-T12 - Add shell command smoke test
 
 Status: DONE (board-tested)
 
-- File: `Old_version/tools/workspace_shell_smoke.py`
+- File: `tools/workspace_shell_smoke.py`
 - Action:
-  1. Exercise `PWD`, `LS`, `CD`, `MKDIR`, `WRITE`, `CAT`, `RM`, `COPY`, and `MOVE`.
+  1. Exercise `PWD`, `LS`, `CD`, `MKDIR`, `RMDIR`, `WRITE`, `CAT`, `RM`,
+     `RM -R`, `CP`, and `MV`.
   2. Include unsafe-path rejects for every file command.
   3. Verify prompt recovery after each command.
 - Done when:
   - The shell command smoke passes on `/dev/ttyACM0`.
-  - Existing BASIC/storage/persistence/adversarial smokes still pass.
+  - Storage, no-BASIC-boundary, renew, and adversarial smokes still pass.
 - Board verification:
   - 2026-06-26: `workspace_shell_smoke.py` passed.
-  - 2026-06-26: `dir_delete_smoke.py` passed.
-  - 2026-06-26: `load_list_run_smoke.py` passed.
-  - 2026-06-26: `reboot_persistence_smoke.py` passed.
+  - 2026-06-26: `workspace_shell_smoke.py` passed.
+  - 2026-06-26: `no_basic_shell_smoke.py` passed.
+  - 2026-06-26: `renew_full_smoke.py` passed.
   - 2026-06-26: `adversarial_shell_smoke.py` passed.
 
 ## S2-T13 - Add input service boundary
@@ -315,11 +328,11 @@ Status: DONE (board-tested)
 Status: DONE (board-tested)
 
 - Files:
-  - `Old_version/main/input.h`
-  - `Old_version/main/input_serial.c`
-  - `Old_version/main/input_ble_hid.c`
-  - `Old_version/main/shell.c`
-  - `Old_version/main/CMakeLists.txt`
+  - `main/input.h`
+  - `main/input_serial.c`
+  - `main/input_ble_hid.c`
+  - `source/shell/shell.c`
+  - `main/CMakeLists.txt`
 - Action:
   1. Move current USB Serial/JTAG line input behind an input API.
   2. Preserve existing terminal behavior.
@@ -334,18 +347,18 @@ Status: DONE (board-tested)
   - `input_ble_hid.c` builds as the future BLE HID backend boundary.
 - Board verification:
   - 2026-06-26: build passed after input refactor.
-  - 2026-06-26: flashed `build-c3-basic` to `/dev/ttyACM0`.
+  - 2026-06-26: flashed `build-c3-root` to `/dev/ttyACM0`.
   - 2026-06-26: `workspace_shell_smoke.py` passed through the input API.
-  - 2026-06-26: `dir_delete_smoke.py` passed through the input API.
-  - 2026-06-26: `load_list_run_smoke.py` passed through the input API.
-  - 2026-06-26: `reboot_persistence_smoke.py` passed through the input API before overflow hardening.
+  - 2026-06-26: `workspace_shell_smoke.py` passed through the input API.
+  - 2026-06-26: `no_basic_shell_smoke.py` passed through the input API.
+  - 2026-06-26: `renew_full_smoke.py` passed through the input API before overflow hardening.
   - 2026-06-26: `adversarial_shell_smoke.py` exposed an overflow-drain regression after the input refactor.
   - 2026-06-26: `input_serial.c` overflow drain was hardened and `adversarial_shell_smoke.py` passed.
-  - 2026-06-26: final `workspace_shell_smoke.py` and `load_list_run_smoke.py` passed after overflow hardening.
+  - 2026-06-26: final `workspace_shell_smoke.py` and `no_basic_shell_smoke.py` passed after overflow hardening.
 
 ## S2-T14 - BLE HID keyboard reference review
 
-Status: DONE (reference-reviewed, hardware pending)
+Status: DONE (reference-reviewed, keyboard pairing pending)
 
 - Local reference:
   - `/home/jo/Codex/ESP32-C3-BLE-Media-Macro-Pad`
@@ -364,6 +377,10 @@ Status: DONE (reference-reviewed, hardware pending)
   - `input_ble_hid.c` includes a boot-keyboard ASCII mapper and backend stubs.
   - Real BLE pairing is deferred until a keyboard is available.
   - Firmware builds with the BLE HID boundary compiled but inactive.
+
+Note: this pending item is only about BLE keyboard pairing. Board GPIO hardware
+services are tracked separately in `source/hardware/TASKS.md` and are complete
+for the current `/bin/hardware` GPIO/ADC/I2C/SPI adapter milestone.
 
 ## Stop Rule
 
