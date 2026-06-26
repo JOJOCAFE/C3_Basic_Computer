@@ -1,5 +1,6 @@
 #include "editor_service.h"
 
+#include "basic.h"
 #include "input.h"
 #include "storage.h"
 
@@ -21,6 +22,10 @@ typedef struct {
     size_t len;
     bool dirty;
 } editor_buffer_t;
+
+typedef struct {
+    const shell_exec_io_t *io;
+} editor_basic_io_t;
 
 static void free_buffer(editor_buffer_t *buffer)
 {
@@ -59,6 +64,18 @@ static int editor_read_line(const shell_exec_io_t *io, char *buf, size_t len)
         return input_read_line(buf, len);
     }
     return io->read_line(io->ctx, buf, len);
+}
+
+static void basic_editor_write(void *ctx, const char *text)
+{
+    editor_basic_io_t *basic_io = (editor_basic_io_t *)ctx;
+    editor_write(basic_io ? basic_io->io : NULL, text);
+}
+
+static int basic_editor_read_line(void *ctx, char *buf, size_t len)
+{
+    editor_basic_io_t *basic_io = (editor_basic_io_t *)ctx;
+    return editor_read_line(basic_io ? basic_io->io : NULL, buf, len);
 }
 
 static const char *skip_ws(const char *s)
@@ -229,7 +246,7 @@ static void show_buffer(const shell_exec_io_t *io, const editor_buffer_t *buffer
     editor_write(io, "--- END ---\r\n");
 }
 
-static void show_help(const shell_exec_io_t *io)
+static void show_help(const shell_exec_io_t *io, editor_mode_t mode)
 {
     editor_write(io,
         "Commands:\r\n"
@@ -239,7 +256,13 @@ static void show_help(const shell_exec_io_t *io)
         ":wq  save and quit\r\n"
         ":p   print buffer\r\n"
         ":clear clear buffer\r\n"
-        ":help help\r\n"
+        ":help help\r\n");
+    if (mode == EDITOR_MODE_BASIC) {
+        editor_write(io,
+            ":run run BASIC program\r\n"
+            ":debug step-run BASIC program (planned)\r\n");
+    }
+    editor_write(io,
         "Any other line appends text.\r\n");
 }
 
@@ -321,6 +344,53 @@ static editor_status_t validate_before_save(const shell_exec_io_t *io, const edi
     return EDITOR_STATUS_OK;
 }
 
+static editor_status_t run_basic_buffer(const shell_exec_io_t *io, const editor_request_t *request,
+                                        editor_buffer_t *buffer)
+{
+    editor_status_t status = validate_before_save(io, request, buffer);
+    if (status != EDITOR_STATUS_OK) {
+        return status;
+    }
+
+    status = save_buffer(buffer);
+    if (status != EDITOR_STATUS_OK) {
+        editor_write(io, "SAVE FAILED\r\n");
+        return status;
+    }
+    editor_write(io, "SAVED\r\n");
+
+    basic_program_t program;
+    basic_init(&program);
+    esp_err_t err = basic_load_buffer(buffer->text, buffer->len, &program);
+    if (err == ESP_ERR_NO_MEM) {
+        editor_write(io, "Out of memory\r\n");
+        basic_clear(&program);
+        return EDITOR_STATUS_OUT_OF_MEMORY;
+    }
+    if (err != ESP_OK) {
+        editor_write(io, "BASIC load failed\r\n");
+        basic_clear(&program);
+        return EDITOR_STATUS_SAVE_FAILED;
+    }
+
+    editor_basic_io_t basic_ctx = {
+        .io = io,
+    };
+    basic_io_t basic_io = {
+        .read_line = basic_editor_read_line,
+        .write = basic_editor_write,
+        .ctx = &basic_ctx,
+    };
+
+    editor_write(io, "RUN\r\n");
+    err = basic_run(&program, &basic_io);
+    basic_clear(&program);
+    if (err != ESP_OK) {
+        return EDITOR_STATUS_SAVE_FAILED;
+    }
+    return EDITOR_STATUS_OK;
+}
+
 editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_t *io)
 {
     editor_buffer_t *buffer;
@@ -383,7 +453,7 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
         }
 
         if (strcmp(line, ":help") == 0) {
-            show_help(io);
+            show_help(io, request->mode);
         } else if (strcmp(line, ":p") == 0) {
             show_buffer(io, buffer);
         } else if (strcmp(line, ":clear") == 0) {
@@ -430,6 +500,17 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
             free(line);
             free_buffer(buffer);
             return EDITOR_STATUS_OK;
+        } else if (strcmp(line, ":run") == 0) {
+            if (request->mode != EDITOR_MODE_BASIC) {
+                editor_write(io, "BASIC mode required\r\n");
+                continue;
+            }
+            status = run_basic_buffer(io, request, buffer);
+            if (status != EDITOR_STATUS_OK) {
+                continue;
+            }
+        } else if (strcmp(line, ":debug") == 0) {
+            editor_write(io, "BASIC debug not implemented\r\n");
         } else if (line[0] == ':') {
             editor_write(io, "Unknown editor command\r\n");
         } else if (!append_line(buffer, line)) {

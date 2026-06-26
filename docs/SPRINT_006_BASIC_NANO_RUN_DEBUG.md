@@ -36,10 +36,21 @@ source handled by `main/basic.c` or a later split BASIC service.
   - Shell must not know BASIC syntax.
 - Current `main/basic.h` / `main/basic.c`
   - Existing runtime API: `basic_load_file`, `basic_save_file`, `basic_run`.
+- `https://github.com/slviajero/tinybasic`
+  - Cloned and checked locally on 2026-06-27.
+  - Basic2 POSIX builds with `gcc basic.c runtime.c -lm`.
+  - The upstream POSIX binary can run a sample program, but its stock
+    `main()`/`loop()` model remains an interactive prompt after stdin ends.
+  - Directly compiling `Basic2/Posix/runtime.c` into ESP-IDF is not the right
+    port path because it assumes POSIX terminal, signal, file, and serial APIs.
+  - The practical port boundary is a C3 BASIC service API: nano passes the
+    64 KiB text buffer to a runtime helper, while an upstream TinyBasic adapter
+    can later sit behind that helper.
+- Current `main/basic.h` / `main/basic.c`
+  - Runtime API: `basic_load_buffer`, `basic_load_file`, `basic_save_file`,
+    `basic_run`.
   - Current implementation is numbered-line oriented.
-  - Current runtime limits are `BASIC_MAX_LINES=64` and `BASIC_LINE_TEXT=128`.
-  - Sprint 006 must remove that small stored-line ceiling for editor-run paths
-    so BASIC can use the full 64 KiB nano buffer.
+  - The old fixed stored-line model has been replaced for editor-run paths.
 
 ## User-Facing Commands
 
@@ -176,34 +187,34 @@ Line text must fit within the 64 KiB source buffer
 
 ### B6-T5 - Add 64 KiB BASIC buffer-to-runtime loader
 
-- [ ] File: `main/basic.c` / `main/basic.h` or new `source/basic` service.
-- [ ] Add a helper that loads a BASIC program from an in-memory text buffer up
+- [x] File: `main/basic.c` / `main/basic.h` or new `source/basic` service.
+- [x] Add a helper that loads a BASIC program from an in-memory text buffer up
   to the nano editor capacity.
-- [ ] Build a runtime line index instead of copying each source line into the
+- [x] Build a runtime line index instead of copying each source line into the
   old `BASIC_LINE_TEXT=128` slots.
-- [ ] Keep source text owned by the editor/runtime context for the duration of
+- [x] Keep source text owned by the editor/runtime context for the duration of
   run/debug.
-- [ ] Preserve current `basic_load_file()` behavior.
+- [x] Preserve current `basic_load_file()` behavior.
 - [ ] Return structured validation errors:
   - source line number
   - token/line text excerpt
   - reason
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - Nano does not need to write a temp file just to validate.
-  - `:run` and `:debug` can validate current unsaved edits after saving policy
-    is decided.
+  - `:run` can validate current unsaved edits after saving policy is decided.
+    `:debug` validation remains tied to step-run implementation.
   - A BASIC file larger than the old 64-line/127-byte model but within 64 KiB
     loads or reports a specific parser/runtime limitation.
 
 ### B6-T6 - Implement `:run`
 
-- [ ] File: `source/editor/editor_service.c` and BASIC service/helper.
-- [ ] `:run` saves the current buffer first.
-- [ ] Load the saved/current buffer into `basic_program_t`.
-- [ ] Run with editor I/O:
+- [x] File: `source/editor/editor_service.c` and BASIC service/helper.
+- [x] `:run` saves the current buffer first.
+- [x] Load the saved/current buffer into `basic_program_t`.
+- [x] Run with editor I/O:
   - BASIC output prints inside nano session.
   - After program ends, nano returns to `edit>` or `edit*`.
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - Program:
     ```basic
     10 PRINT "HELLO"
@@ -271,7 +282,8 @@ Line text must fit within the 64 KiB source buffer
 
 - [x] Add `tools/basic_editor_smoke.py`.
 - [x] First slice covers BASIC open/save/reopen, path policy, invalid numeric-line
-  rejection, and HELP non-exposure.
+  rejection, `:run`, larger-than-old-runtime program load/run, and HELP
+  non-exposure.
 - [ ] Cover:
   - `BASIC /basic/hello.bas`
   - append valid numbered program

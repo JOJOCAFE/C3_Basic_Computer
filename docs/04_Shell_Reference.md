@@ -239,7 +239,9 @@ Planned BASIC runtime editor commands:
 :debug  Step-run the open BASIC program one statement at a time
 ```
 
-BASIC editor-run source uses the full 64 KiB nano text buffer. BASIC shell and
+`:run` is implemented for numbered BASIC programs and uses a buffer-backed
+loader that can consume the full 64 KiB nano text buffer. `:debug` remains a
+planned step-run command. BASIC shell and
 hardware access must go through an explicit safe bridge. The first bridge allows
 only whitelisted query-style commands such as `PWD`, `LS`, `CAT`, and typed
 hardware reads. It must block destructive or protected commands such as `RENEW`,

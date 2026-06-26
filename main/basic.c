@@ -1,12 +1,15 @@
 #include "basic.h"
 
 #include <ctype.h>
+#include <stdint.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <time.h>
+
+#define BASIC_INITIAL_CAPACITY 16
 
 typedef struct {
     char name;
@@ -458,13 +461,6 @@ static int find_line(const basic_program_t *program, int number)
     return -1;
 }
 
-static int compare_lines(const void *a, const void *b)
-{
-    const basic_line_t *la = (const basic_line_t *)a;
-    const basic_line_t *lb = (const basic_line_t *)b;
-    return la->number - lb->number;
-}
-
 void basic_init(basic_program_t *program)
 {
     if (!program) {
@@ -480,7 +476,45 @@ void basic_clear(basic_program_t *program)
     if (!program) {
         return;
     }
+    for (size_t i = 0; i < program->count; ++i) {
+        free(program->lines[i].text);
+    }
+    free(program->lines);
     memset(program, 0, sizeof(*program));
+}
+
+static char *basic_strdup(const char *text)
+{
+    size_t len = strlen(text);
+    char *copy = malloc(len + 1);
+    if (!copy) {
+        return NULL;
+    }
+    memcpy(copy, text, len + 1);
+    return copy;
+}
+
+static bool basic_reserve_lines(basic_program_t *program, size_t needed)
+{
+    if (needed <= program->capacity) {
+        return true;
+    }
+
+    size_t next = program->capacity ? program->capacity : BASIC_INITIAL_CAPACITY;
+    while (next < needed) {
+        if (next > (SIZE_MAX / 2)) {
+            return false;
+        }
+        next *= 2;
+    }
+
+    basic_line_t *lines = realloc(program->lines, next * sizeof(*lines));
+    if (!lines) {
+        return false;
+    }
+    program->lines = lines;
+    program->capacity = next;
+    return true;
 }
 
 bool basic_store_line(basic_program_t *program, const char *line)
@@ -503,6 +537,7 @@ bool basic_store_line(basic_program_t *program, const char *line)
     if (*p == '\0') {
         for (size_t i = 0; i < program->count; ++i) {
             if (program->lines[i].number == number) {
+                free(program->lines[i].text);
                 for (size_t j = i; j + 1 < program->count; ++j) {
                     program->lines[j] = program->lines[j + 1];
                 }
@@ -513,18 +548,24 @@ bool basic_store_line(basic_program_t *program, const char *line)
         return true;
     }
 
+    char *stored_text = basic_strdup(p);
+    if (!stored_text) {
+        return false;
+    }
+
     size_t idx = 0;
     while (idx < program->count && program->lines[idx].number < number) {
         idx++;
     }
 
     if (idx < program->count && program->lines[idx].number == number) {
-        strncpy(program->lines[idx].text, p, BASIC_LINE_TEXT - 1);
-        program->lines[idx].text[BASIC_LINE_TEXT - 1] = '\0';
+        free(program->lines[idx].text);
+        program->lines[idx].text = stored_text;
         return true;
     }
 
-    if (program->count >= BASIC_MAX_LINES) {
+    if (!basic_reserve_lines(program, program->count + 1)) {
+        free(stored_text);
         return false;
     }
 
@@ -533,8 +574,7 @@ bool basic_store_line(basic_program_t *program, const char *line)
     }
 
     program->lines[idx].number = number;
-    strncpy(program->lines[idx].text, p, BASIC_LINE_TEXT - 1);
-    program->lines[idx].text[BASIC_LINE_TEXT - 1] = '\0';
+    program->lines[idx].text = stored_text;
     program->count++;
     return true;
 }
@@ -547,9 +587,53 @@ void basic_list(const basic_program_t *program, basic_write_fn write, void *ctx)
 
     char line[160];
     for (size_t i = 0; i < program->count; ++i) {
-        snprintf(line, sizeof(line), "%d %s\r\n", program->lines[i].number, program->lines[i].text);
+        snprintf(line, sizeof(line), "%d ", program->lines[i].number);
         write(ctx, line);
+        write(ctx, program->lines[i].text ? program->lines[i].text : "");
+        write(ctx, "\r\n");
     }
+}
+
+esp_err_t basic_load_buffer(const char *text, size_t len, basic_program_t *program)
+{
+    if (!text || !program) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    basic_clear(program);
+
+    size_t offset = 0;
+    while (offset < len) {
+        size_t start = offset;
+        while (offset < len && text[offset] != '\r' && text[offset] != '\n') {
+            offset++;
+        }
+
+        size_t line_len = offset - start;
+        char *line = malloc(line_len + 1);
+        if (!line) {
+            basic_clear(program);
+            return ESP_ERR_NO_MEM;
+        }
+        memcpy(line, text + start, line_len);
+        line[line_len] = '\0';
+
+        if (*skip_ws(line) != '\0' && !basic_store_line(program, line)) {
+            free(line);
+            basic_clear(program);
+            return ESP_FAIL;
+        }
+        free(line);
+
+        if (offset < len && text[offset] == '\r') {
+            offset++;
+        }
+        if (offset < len && text[offset] == '\n') {
+            offset++;
+        }
+    }
+
+    return ESP_OK;
 }
 
 esp_err_t basic_load_file(const char *path, basic_program_t *program)
@@ -563,18 +647,33 @@ esp_err_t basic_load_file(const char *path, basic_program_t *program)
         return ESP_FAIL;
     }
 
-    basic_clear(program);
-    char line[256];
-    while (fgets(line, sizeof(line), f)) {
-        line[strcspn(line, "\r\n")] = '\0';
-        if (!basic_store_line(program, line)) {
-            fclose(f);
-            return ESP_FAIL;
-        }
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return ESP_FAIL;
+    }
+    long size = ftell(f);
+    if (size < 0 || fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return ESP_FAIL;
     }
 
+    char *text = malloc((size_t)size + 1);
+    if (!text) {
+        fclose(f);
+        return ESP_ERR_NO_MEM;
+    }
+    size_t read_len = fread(text, 1, (size_t)size, f);
+    if (read_len != (size_t)size && ferror(f)) {
+        free(text);
+        fclose(f);
+        return ESP_FAIL;
+    }
+    text[read_len] = '\0';
+
     fclose(f);
-    return ESP_OK;
+    esp_err_t err = basic_load_buffer(text, read_len, program);
+    free(text);
+    return err;
 }
 
 esp_err_t basic_save_file(const char *path, const basic_program_t *program)
@@ -929,34 +1028,22 @@ esp_err_t basic_run(const basic_program_t *program, const basic_io_t *io)
         return ESP_OK;
     }
 
-    basic_program_t *ordered = calloc(1, sizeof(*ordered));
-    if (!ordered) {
-        write_ln(io, "OUT OF MEMORY");
-        return ESP_ERR_NO_MEM;
-    }
-
-    *ordered = *program;
-    qsort(ordered->lines, ordered->count, sizeof(ordered->lines[0]), compare_lines);
-
     gosub_frame_t gosub_stack[BASIC_STACK_DEPTH] = {0};
     for_frame_t for_stack[BASIC_FOR_DEPTH] = {0};
     int gosub_sp = 0;
     int for_sp = 0;
 
-    for (int pc = 0; pc < (int)ordered->count; ++pc) {
-        esp_err_t err = execute_line(ordered, &pc, io, gosub_stack, &gosub_sp, for_stack, &for_sp);
+    for (int pc = 0; pc < (int)program->count; ++pc) {
+        esp_err_t err = execute_line(program, &pc, io, gosub_stack, &gosub_sp, for_stack, &for_sp);
         if (err == ESP_ERR_NOT_FOUND) {
-            free(ordered);
             return ESP_OK;
         }
         if (err != ESP_OK) {
             write_ln(io, "BASIC ERROR");
-            free(ordered);
             return err;
         }
     }
 
-    free(ordered);
     return ESP_OK;
 }
 
@@ -966,18 +1053,27 @@ esp_err_t basic_execute_immediate(basic_program_t *program, const char *line, co
         return ESP_ERR_INVALID_ARG;
     }
 
-    basic_line_t temp = {0};
-    temp.number = 0;
-    strncpy(temp.text, line, sizeof(temp.text) - 1);
-
     basic_program_t *scratch = calloc(1, sizeof(*scratch));
     if (!scratch) {
         return ESP_ERR_NO_MEM;
     }
 
-    scratch->lines[0] = temp;
+    basic_init(scratch);
+    if (!basic_reserve_lines(scratch, 1)) {
+        free(scratch);
+        return ESP_ERR_NO_MEM;
+    }
+    scratch->lines[0].number = 0;
+    scratch->lines[0].text = basic_strdup(line);
+    if (!scratch->lines[0].text) {
+        free(scratch->lines);
+        free(scratch);
+        return ESP_ERR_NO_MEM;
+    }
     scratch->count = 1;
+
     esp_err_t err = basic_run(scratch, io);
+    basic_clear(scratch);
     free(scratch);
     return err;
 }

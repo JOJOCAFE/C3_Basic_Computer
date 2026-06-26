@@ -139,10 +139,10 @@ BASIC /basic/hello.bas
 ```
 
 Current BASIC editor mode accepts `/basic/*.bas`, validates numbered BASIC lines
-before save, and keeps the runtime separate from the boot shell. `:run` will run
-the open BASIC buffer from nano, and `:debug` will step-run the BASIC program
-one statement at a time. BASIC editor-run source uses the same 64 KiB nano text
-buffer. Planned BASIC shell/hardware bridge commands are limited to explicitly
+before save, and keeps the runtime separate from the boot shell. `:run` saves
+and runs the open BASIC buffer from nano with the 64 KiB editor-run loader.
+`:debug` will step-run the BASIC program one statement at a time. Planned
+BASIC shell/hardware bridge commands are limited to explicitly
 whitelisted safe query operations such as `PWD`, `LS`, `CAT`, and typed hardware
 reads; destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and
 native execution stay blocked.
@@ -157,6 +157,7 @@ Text line  Append text
 :wq        Save and quit
 :p         Print buffer
 :clear     Clear buffer
+:run       Save and run BASIC program in BASIC mode
 :help      Help
 ```
 

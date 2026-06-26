@@ -114,7 +114,11 @@ def main(argv: list[str]) -> int:
     token = f"BASIC_{time.time_ns()}"
     path = f"/basic/{token}.bas"
     bad_path = f"/basic/{token}_bad.bas"
+    large_path = f"/basic/{token}_large.bas"
     txt_path = f"/data/{token}.txt"
+    large_program = [f"{10 + i * 10} REM line {i:03d} " + ("X" * 160) for i in range(90)]
+    large_program.append("1000 PRINT \"LARGE BASIC OK\"")
+    large_program.append("1010 END")
 
     session = ShellSession(args.port, args.baud, args.timeout)
     try:
@@ -137,6 +141,13 @@ def main(argv: list[str]) -> int:
         print_block("BASIC reopen", result.raw)
         require("10 PRINT \"HELLO\"" in result.raw, "reopened BASIC file missing line 10")
         require("20 END" in result.raw, "reopened BASIC file missing line 20")
+
+        result = session.edit("BASIC", large_path, [*large_program, ":run", ":q"], args.timeout + 20.0)
+        print_block("BASIC large run", result.raw[:1200] + "\n...[large BASIC output truncated]...")
+        require("SAVED" in result.raw, "large BASIC program was not saved before run")
+        require("RUN" in result.raw, "large BASIC program did not enter run path")
+        require("LARGE BASIC OK" in result.raw, "large BASIC program did not run")
+        require(result.raw.endswith("> "), "large BASIC run did not return through editor to shell")
 
         result = session.edit("BASIC", bad_path, ["123ABC", ":w", ":p", ":q!"], args.timeout)
         print_block("BASIC invalid save", result.raw)
@@ -161,6 +172,7 @@ def main(argv: list[str]) -> int:
         require("BASIC" not in result.response, "HELP should not expose BASIC as boot-shell immediate mode")
 
         session.command(f"RM {path}", args.timeout)
+        session.command(f"RM {large_path}", args.timeout)
         print(f"PASS: BASIC nano mode validation smoke test for {path}")
         return 0
     finally:
