@@ -1,5 +1,7 @@
 #include "basic.h"
 
+#include "basic_hardware.h"
+
 #include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -30,6 +32,8 @@ typedef struct {
 } for_frame_t;
 
 static basic_var_t g_vars[26];
+static char g_runtime_error[64];
+static int g_runtime_error_line;
 
 static void write_str(const basic_io_t *io, const char *text)
 {
@@ -90,18 +94,92 @@ static void reset_vars(void)
 
 static int parse_expr(const char **s, const basic_io_t *io, bool *ok);
 
+static void clear_runtime_error(void)
+{
+    g_runtime_error[0] = '\0';
+    g_runtime_error_line = 0;
+}
+
+static void set_runtime_error(int line_number, const char *message)
+{
+    g_runtime_error_line = line_number;
+    snprintf(g_runtime_error, sizeof(g_runtime_error), "%s",
+             message ? message : "BASIC ERROR");
+}
+
+static bool expect_end(const char *s)
+{
+    return *skip_ws(s) == '\0';
+}
+
+static bool parse_comma(const char **s)
+{
+    *s = skip_ws(*s);
+    if (**s != ',') {
+        return false;
+    }
+    (*s)++;
+    return true;
+}
+
+static bool parse_constant(const char *ident, int *value)
+{
+    if (strcmp(ident, "LOW") == 0) {
+        *value = 0;
+    } else if (strcmp(ident, "HIGH") == 0) {
+        *value = 1;
+    } else if (strcmp(ident, "INPUT") == 0) {
+        *value = BASIC_HW_PIN_INPUT;
+    } else if (strcmp(ident, "INPUT_PULLUP") == 0) {
+        *value = BASIC_HW_PIN_INPUT_PULLUP;
+    } else if (strcmp(ident, "INPUT_PULLDOWN") == 0) {
+        *value = BASIC_HW_PIN_INPUT_PULLDOWN;
+    } else if (strcmp(ident, "OUTPUT") == 0) {
+        *value = BASIC_HW_PIN_OUTPUT;
+    } else if (strcmp(ident, "OUTPUT_OPEN_DRAIN") == 0) {
+        *value = BASIC_HW_PIN_OUTPUT_OPEN_DRAIN;
+    } else {
+        return false;
+    }
+    return true;
+}
+
+static bool parse_pin_args(const char **s, const basic_io_t *io, int *arg)
+{
+    bool ok = true;
+    int value = parse_expr(s, io, &ok);
+    if (!ok) {
+        return false;
+    }
+    *s = skip_ws(*s);
+    if (**s != ')') {
+        return false;
+    }
+    (*s)++;
+    *arg = value;
+    return true;
+}
+
+static int fail_hardware_function(bool *ok, const basic_hw_result_t *result)
+{
+    set_runtime_error(g_runtime_error_line,
+                      result && result->message ? result->message : "hardware driver failed");
+    *ok = false;
+    return 0;
+}
+
 static bool parse_identifier(const char **s, char *name, size_t name_len)
 {
     size_t idx = 0;
     const char *p = *s;
-    while (isalpha((unsigned char)*p)) {
+    if (!isalpha((unsigned char)*p)) {
+        return false;
+    }
+    while (isalnum((unsigned char)*p) || *p == '_') {
         if (idx + 1 < name_len) {
             name[idx++] = (char)toupper((unsigned char)*p);
         }
         p++;
-    }
-    if (idx == 0) {
-        return false;
     }
     name[idx] = '\0';
     *s = p;
@@ -174,9 +252,38 @@ static int parse_factor(const char **s, const basic_io_t *io, bool *ok)
                 }
                 return rand() % a;
             }
+            if (strcmp(ident, "DREAD") == 0) {
+                if (!parse_pin_args(s, io, &a)) {
+                    *ok = false;
+                    return 0;
+                }
+                int level = 0;
+                basic_hw_result_t result = basic_hw_dread(a, &level);
+                if (result.status != BASIC_HW_OK) {
+                    return fail_hardware_function(ok, &result);
+                }
+                return level;
+            }
+            if (strcmp(ident, "AREAD") == 0) {
+                if (!parse_pin_args(s, io, &a)) {
+                    *ok = false;
+                    return 0;
+                }
+                int raw = 0;
+                basic_hw_result_t result = basic_hw_aread(a, &raw);
+                if (result.status != BASIC_HW_OK) {
+                    return fail_hardware_function(ok, &result);
+                }
+                return raw;
+            }
 
             *ok = false;
             return 0;
+        }
+
+        int constant = 0;
+        if (parse_constant(ident, &constant)) {
+            return constant;
         }
 
         if (strlen(ident) == 1) {
@@ -689,10 +796,66 @@ static esp_err_t execute_service_statement(const basic_io_t *io, const char *cur
     return io->service_exec(io->ctx, command, hardware);
 }
 
+static esp_err_t execute_hardware_result(const basic_hw_result_t *result)
+{
+    if (!result || result->status != BASIC_HW_OK) {
+        set_runtime_error(g_runtime_error_line,
+                          result && result->message ? result->message : "hardware driver failed");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t execute_pinmode_statement(const basic_io_t *io, const char *cursor)
+{
+    bool ok = true;
+    int pin = parse_expr(&cursor, io, &ok);
+    if (!ok || !parse_comma(&cursor)) {
+        return ESP_FAIL;
+    }
+    int mode = parse_expr(&cursor, io, &ok);
+    if (!ok || !expect_end(cursor)) {
+        return ESP_FAIL;
+    }
+
+    basic_hw_result_t result = basic_hw_pinmode(pin, (basic_hw_pin_mode_t)mode);
+    return execute_hardware_result(&result);
+}
+
+static esp_err_t execute_dwrite_statement(const basic_io_t *io, const char *cursor)
+{
+    bool ok = true;
+    int pin = parse_expr(&cursor, io, &ok);
+    if (!ok || !parse_comma(&cursor)) {
+        return ESP_FAIL;
+    }
+    int level = parse_expr(&cursor, io, &ok);
+    if (!ok || !expect_end(cursor)) {
+        return ESP_FAIL;
+    }
+
+    basic_hw_result_t result = basic_hw_dwrite(pin, level);
+    return execute_hardware_result(&result);
+}
+
+static esp_err_t execute_dtoggle_statement(const basic_io_t *io, const char *cursor)
+{
+    bool ok = true;
+    int pin = parse_expr(&cursor, io, &ok);
+    if (!ok || !expect_end(cursor)) {
+        return ESP_FAIL;
+    }
+
+    basic_hw_result_t result = basic_hw_toggle(pin);
+    return execute_hardware_result(&result);
+}
+
 static esp_err_t execute_line(const basic_program_t *program, int *pc, const basic_io_t *io,
                               gosub_frame_t *gosub_stack, int *gosub_sp, for_frame_t *for_stack, int *for_sp)
 {
     const char *line = program->lines[*pc].text;
+    g_runtime_error_line = program->lines[*pc].number;
+    g_runtime_error[0] = '\0';
     line = skip_ws(line);
     if (*line == '\0') {
         return ESP_OK;
@@ -743,6 +906,18 @@ static esp_err_t execute_line(const basic_program_t *program, int *pc, const bas
 
     if (parse_keyword(&cursor, "HARDWARE")) {
         return execute_service_statement(io, cursor, true);
+    }
+
+    if (parse_keyword(&cursor, "PINMODE")) {
+        return execute_pinmode_statement(io, cursor);
+    }
+
+    if (parse_keyword(&cursor, "DWRITE")) {
+        return execute_dwrite_statement(io, cursor);
+    }
+
+    if (parse_keyword(&cursor, "DTOGGLE")) {
+        return execute_dtoggle_statement(io, cursor);
     }
 
     if (parse_keyword(&cursor, "LET")) {
@@ -993,6 +1168,7 @@ esp_err_t basic_run(const basic_program_t *program, const basic_io_t *io)
         return ESP_OK;
     }
 
+    clear_runtime_error();
     gosub_frame_t gosub_stack[BASIC_STACK_DEPTH] = {0};
     for_frame_t for_stack[BASIC_FOR_DEPTH] = {0};
     int gosub_sp = 0;
@@ -1004,6 +1180,11 @@ esp_err_t basic_run(const basic_program_t *program, const basic_io_t *io)
             return ESP_OK;
         }
         if (err != ESP_OK) {
+            if (g_runtime_error[0]) {
+                char msg[96];
+                snprintf(msg, sizeof(msg), "Line %d: %s", g_runtime_error_line, g_runtime_error);
+                write_ln(io, msg);
+            }
             write_ln(io, "BASIC ERROR");
             return err;
         }
@@ -1032,6 +1213,7 @@ esp_err_t basic_debug(const basic_program_t *program, const basic_io_t *io)
     write_ln(io, "DEBUG");
     write_ln(io, "Enter/s step, c continue, p vars, l line, q quit");
 
+    clear_runtime_error();
     for (int pc = 0; pc < (int)program->count; ++pc) {
         if (!continuous) {
             while (true) {
@@ -1071,6 +1253,11 @@ esp_err_t basic_debug(const basic_program_t *program, const basic_io_t *io)
             return ESP_OK;
         }
         if (err != ESP_OK) {
+            if (g_runtime_error[0]) {
+                char msg[96];
+                snprintf(msg, sizeof(msg), "Line %d: %s", g_runtime_error_line, g_runtime_error);
+                write_ln(io, msg);
+            }
             write_ln(io, "BASIC ERROR");
             return err;
         }

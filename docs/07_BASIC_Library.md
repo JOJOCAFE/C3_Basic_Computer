@@ -214,27 +214,38 @@ ACCELZ()
 
 ## GPIO
 
-Status: Deferred for BASIC. The reusable firmware hardware API exists in
-`source/hardware`, and terminal hardware access is currently available through
-`/bin/hardware` GPIO/ADC/I2C/SPI adapters. BASIC statements below are the
-planned BASIC-facing surface, not implemented boot-shell commands.
+Status: First BASIC GPIO/ADC slice implemented. BASIC calls `source/hardware`
+through a typed BASIC adapter; it does not route these statements through the
+shell or `/bin/hardware`.
 
 Statements
 
 ```text
-PINMODE
+PINMODE pin, mode
 
-DWRITE
+DWRITE pin, level
 
-DREAD
+DTOGGLE pin
 ```
 
 Functions
 
 ```text
-AREAD()
+DREAD(pin)
 
-AWRITE()
+AREAD()
+```
+
+Constants
+
+```text
+INPUT
+INPUT_PULLUP
+INPUT_PULLDOWN
+OUTPUT
+OUTPUT_OPEN_DRAIN
+LOW
+HIGH
 ```
 
 GPIO may be referenced by
@@ -243,6 +254,16 @@ Pin number
 
 ```basic
 DWRITE 8,1
+```
+
+Preferred example:
+
+```basic
+10 PINMODE 8, OUTPUT
+20 DWRITE 8, HIGH
+30 PRINT DREAD(8)
+40 PRINT AREAD(0)
+50 END
 ```
 
 or Alias

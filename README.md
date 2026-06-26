@@ -20,8 +20,8 @@ Current implementation context:
 - Sprint 002 micro Linux workspace shell is complete and board-tested,
   using the local OpenC6 BIOS fork as a structure reference.
 - Hardware service package is complete for GPIO/ADC/I2C/SPI C APIs. The root
-  firmware exposes terminal hardware clients through `/bin/hardware`; BASIC
-  hardware access is deferred to a direct `source/hardware` API layer.
+  firmware exposes terminal hardware clients through `/bin/hardware`; BASIC now
+  has a typed GPIO/ADC adapter over `source/hardware` for the first slice.
 - Native RISC-V assembly capture is the next candidate milestone. Native
   execution remains blocked until a later guarded runtime sprint.
 - BLE HID keyboard support has a compiled input boundary, but real keyboard
@@ -146,14 +146,25 @@ and runs the open BASIC buffer from nano with the 64 KiB editor-run loader.
 The first BASIC runtime is intentionally tiny: numbered lines, integer
 expressions, single-letter variables, `REM`, `PRINT`, `LET`/assignment,
 `INPUT`, `IF THEN [ELSE]`, `GOTO`, `GOSUB`/`RETURN`, `FOR`/`NEXT`, `END`/`STOP`,
-and `ABS`, `INT`, `RND`. Extended graphics, sound, network, arrays, strings,
-and modern unnumbered BASIC are deferred.
+`PINMODE`, `DWRITE`, `DTOGGLE`, `DREAD()`, `AREAD()`, and `ABS`, `INT`, `RND`.
+Extended graphics, sound, network, arrays, strings, I2C/SPI BASIC commands, and
+modern unnumbered BASIC are deferred.
 
 BASIC service calls are limited to explicitly whitelisted safe operations:
 `SHELL "PWD"`, `SHELL "CAT <file>"`, `HARDWARE "gpio read -p <pin>"`, and
 `HARDWARE "adc read -p <pin>"`. Directory listing from BASIC is deferred until
 it has a stack-safe adapter. Destructive commands such as `RENEW`, `RM`,
 `WRITE`, `CP`, `MV`, and native execution stay blocked.
+
+Preferred BASIC hardware access is typed and calls `source/hardware` directly:
+
+```basic
+10 PINMODE 8, OUTPUT
+20 DWRITE 8, HIGH
+30 PRINT DREAD(8)
+40 PRINT AREAD(0)
+50 END
+```
 
 Inside nano:
 

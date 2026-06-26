@@ -352,10 +352,9 @@ Structured BASIC validation update:
 
 1. Keep BASIC `LS` deferred. The tiny core keeps `PWD` and `CAT`; directory
    listing can come later through a stack-safe adapter if real programs need it.
-2. Keep hardware access as the checked string bridge for now:
-   `HARDWARE "gpio read -p <pin>"` and `HARDWARE "adc read -p <pin>"`.
-   Typed BASIC hardware statements are deferred until this bridge has more
-   coverage and a clearer user-facing shape.
+2. Keep the checked string hardware bridge available for compatibility. Typed
+   BASIC hardware statements are handled by Sprint 003 and call
+   `source/hardware` directly.
 
 ## Non-Goals
 

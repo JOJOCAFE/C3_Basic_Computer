@@ -17,6 +17,7 @@ idf_component_register(
         "input_serial.c"
         "input_ble_hid.c"
         "basic.c"
+        "basic_hardware.c"
         "storage.c"
     INCLUDE_DIRS
         "."

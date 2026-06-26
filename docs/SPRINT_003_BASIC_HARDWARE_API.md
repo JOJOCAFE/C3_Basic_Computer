@@ -1,13 +1,13 @@
 # Sprint 003 BASIC Hardware API
 
-Status: Design for review
+Status: First GPIO/ADC BASIC hardware slice implemented.
 
 Scope: design the BASIC-facing hardware API that calls `source/hardware`
 directly. This sprint does not add shell built-ins, does not route BASIC
 through `/bin/hardware`, and does not modify the active hardware service
 implementation.
 
-`Old_version/` is legacy reference only. The current source boundaries are:
+The current source boundaries are:
 
 ```text
 source/shell     standalone lean workspace shell
@@ -400,9 +400,9 @@ or equivalent short protected-pin error.
 
 ### S3-T1 - Freeze BASIC hardware syntax
 
-- [ ] Update BASIC library docs after review.
-- [ ] Decide whether `DTOGGLE` belongs in the first release.
-- [ ] Keep string aliases deferred.
+- [x] Update BASIC library docs after review.
+- [x] Decide whether `DTOGGLE` belongs in the first release: included.
+- [x] Keep string aliases deferred.
 
 Done when:
 
@@ -411,9 +411,9 @@ Done when:
 
 ### S3-T2 - Add BASIC hardware adapter header
 
-- [ ] Add typed status enum.
-- [ ] Add pin mode enum.
-- [ ] Add adapter function declarations.
+- [x] Add typed status enum.
+- [x] Add pin mode enum.
+- [x] Add adapter function declarations.
 
 Done when:
 
@@ -421,10 +421,10 @@ Done when:
 
 ### S3-T3 - Implement BASIC hardware adapter
 
-- [ ] Call `hardware_init()` lazily or during BASIC runtime init.
-- [ ] Map pin modes to `hardware_gpio_*` configs.
-- [ ] Map ADC reads to `hardware_adc_read_gpio()`.
-- [ ] Map errors into BASIC hardware statuses.
+- [x] Call `hardware_init()` lazily or during BASIC runtime init.
+- [x] Map pin modes to `hardware_gpio_*` configs.
+- [x] Map ADC reads to `hardware_adc_read_gpio()`.
+- [x] Map errors into BASIC hardware statuses.
 
 Done when:
 
@@ -433,9 +433,9 @@ Done when:
 
 ### S3-T4 - Add BASIC parser hooks
 
-- [ ] Parse `PINMODE`, `DWRITE`, and `DTOGGLE` as statements.
-- [ ] Parse `DREAD()` and `AREAD()` as functions.
-- [ ] Add constants for modes and levels.
+- [x] Parse `PINMODE`, `DWRITE`, and `DTOGGLE` as statements.
+- [x] Parse `DREAD()` and `AREAD()` as functions.
+- [x] Add constants for modes and levels.
 
 Done when:
 
@@ -443,9 +443,9 @@ Done when:
 
 ### S3-T5 - Add runtime execution hooks
 
-- [ ] Execute hardware statements through the BASIC adapter.
-- [ ] Evaluate hardware functions through the BASIC adapter.
-- [ ] Stop program execution on hardware error.
+- [x] Execute hardware statements through the BASIC adapter.
+- [x] Evaluate hardware functions through the BASIC adapter.
+- [x] Stop program execution on hardware error.
 
 Done when:
 
@@ -454,10 +454,10 @@ Done when:
 
 ### S3-T6 - Add regression and board smoke tests
 
-- [ ] Add host parser tests.
-- [ ] Add adapter tests or focused smoke tests if mocks are not practical.
-- [ ] Add a board smoke for GPIO8.
-- [ ] Add a protected-pin negative smoke.
+- [x] Add board-backed parser/runtime smoke for valid typed hardware syntax.
+- [x] Add focused smoke tests instead of adapter mocks.
+- [x] Add a board smoke for GPIO8.
+- [x] Add a protected-pin negative smoke.
 
 Done when:
 
@@ -465,6 +465,19 @@ Done when:
 - Standalone shell build still passes.
 - Existing shell and `/bin/hardware` smokes still pass.
 - New BASIC GPIO smoke passes on board.
+
+2026-06-27 board evidence:
+
+- Root firmware build passed, app size `0x50d10`, 75% free.
+- Standalone shell build passed, app size `0x3d890`, 76% free.
+- Flash to `/dev/ttyACM0` passed.
+- `python3 tools/basic_editor_smoke.py --port /dev/ttyACM0 --timeout 40`
+  passed with `PINMODE`, `DWRITE`, `DREAD()`, `DTOGGLE`, and line-anchored
+  protected-pin rejection for `PINMODE 18, OUTPUT`.
+- `python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0` passed.
+- `python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0` passed.
+- `python3 tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 10`
+  passed.
 
 ## What Not To Implement Yet
 
@@ -491,6 +504,7 @@ Do not implement these in Sprint 003:
 
 1. Should `DTOGGLE pin` be included in the first BASIC release, or should the
    first release stay limited to `PINMODE`, `DWRITE`, `DREAD()`, and `AREAD()`?
+   Decision: include `DTOGGLE pin`.
 2. Should calibrated ADC millivolts be exposed as `AMV(gpio)` later, or should
    `AREAD()` eventually return millivolts instead of raw counts?
 3. Should BASIC ever expose protected-pin override, or should that remain only
@@ -500,15 +514,15 @@ Do not implement these in Sprint 003:
 
 ## Completion Gate
 
-Sprint 003 is complete only when:
+Sprint 003 first GPIO/ADC slice completion:
 
-1. BASIC hardware syntax is documented.
-2. BASIC calls `source/hardware` directly through a typed C adapter.
-3. The shell remains standalone and lean.
-4. `/bin/hardware` remains a terminal client, not a BASIC dependency.
-5. Protected pins remain blocked from BASIC.
-6. Root firmware build passes.
-7. Standalone shell build passes.
-8. Existing shell smoke tests pass.
-9. Existing `/bin/hardware` smoke tests pass.
-10. New BASIC hardware smoke passes on the board.
+1. [x] BASIC hardware syntax is documented.
+2. [x] BASIC calls `source/hardware` directly through a typed C adapter.
+3. [x] The shell remains standalone and lean.
+4. [x] `/bin/hardware` remains a terminal client, not a BASIC dependency.
+5. [x] Protected pins remain blocked from BASIC.
+6. [x] Root firmware build passes.
+7. [x] Standalone shell build passes.
+8. [x] Existing shell smoke tests pass.
+9. [x] Existing `/bin/hardware` smoke tests pass.
+10. [x] New BASIC hardware smoke passes on the board.

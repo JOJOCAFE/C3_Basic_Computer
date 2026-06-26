@@ -246,8 +246,9 @@ buffer-backed loader that can consume the full 64 KiB nano text buffer.
 The first BASIC runtime is intentionally tiny: numbered lines, integer
 expressions, single-letter variables, `REM`, `PRINT`, `LET`/assignment,
 `INPUT`, `IF THEN [ELSE]`, `GOTO`, `GOSUB`/`RETURN`, `FOR`/`NEXT`, `END`/`STOP`,
-and `ABS`, `INT`, `RND`. Extended graphics, sound, network, arrays, strings,
-and modern unnumbered BASIC are deferred.
+`PINMODE`, `DWRITE`, `DTOGGLE`, `DREAD()`, `AREAD()`, and `ABS`, `INT`, `RND`.
+Extended graphics, sound, network, arrays, strings, I2C/SPI BASIC commands, and
+modern unnumbered BASIC are deferred.
 
 BASIC shell and hardware access must go through an explicit safe bridge. The
 current bridge allows `SHELL "PWD"`, `SHELL "CAT <file>"`, `HARDWARE "gpio read
@@ -256,6 +257,17 @@ deferred until it has a stack-safe adapter. The bridge blocks destructive or
 protected commands such as `RENEW`, `RM`, `RM -R`, `WRITE`, `CP`, `MV`, and
 native execution. `ASM <path>` remains a planned shell front end to nano ASM
 mode.
+
+Preferred BASIC hardware access is typed and calls `source/hardware` directly,
+not the shell or `/bin/hardware` text parser:
+
+```basic
+10 PINMODE 8, OUTPUT
+20 DWRITE 8, HIGH
+30 PRINT DREAD(8)
+40 PRINT AREAD(0)
+50 END
+```
 
 Current editor limits:
 

@@ -118,6 +118,8 @@ def main(argv: list[str]) -> int:
     debug_path = f"/basic/{token}_debug.bas"
     bridge_path = f"/basic/{token}_bridge.bas"
     blocked_path = f"/basic/{token}_blocked.bas"
+    typed_hw_path = f"/basic/{token}_typed_hw.bas"
+    protected_hw_path = f"/basic/{token}_protected_hw.bas"
     large_path = f"/basic/{token}_large.bas"
     txt_path = f"/data/{token}.txt"
     large_program = [f"{10 + i * 10} REM line {i:03d} " + ("X" * 160) for i in range(90)]
@@ -191,6 +193,36 @@ def main(argv: list[str]) -> int:
                 "SHELL PWD bridge did not print current workspace path")
         require("GPIO8 READ" in result.raw, "HARDWARE gpio read bridge did not run")
 
+        typed_hw_program = [
+            "10 PINMODE 8, OUTPUT",
+            "20 DWRITE 8, LOW",
+            "30 PRINT DREAD(8)",
+            "40 DWRITE 8, HIGH",
+            "50 PRINT DREAD(8)",
+            "60 DTOGGLE 8",
+            "70 PRINT \"TYPED HW OK\"",
+            "80 END",
+            ":run",
+            ":q",
+        ]
+        result = session.edit("BASIC", typed_hw_path, typed_hw_program, args.timeout)
+        print_block("BASIC typed hardware", result.raw)
+        require("TYPED HW OK" in result.raw, "typed BASIC hardware program did not complete")
+        require("BASIC ERROR" not in result.raw, "typed BASIC hardware success path failed")
+        require("\n0\r\n" in result.raw or "\n0\n" in result.raw, "DREAD did not print low level")
+
+        protected_hw_program = [
+            "10 PINMODE 18, OUTPUT",
+            "20 PRINT \"SHOULD NOT PRINT\"",
+            "30 END",
+            ":run",
+            ":q!",
+        ]
+        result = session.edit("BASIC", protected_hw_path, protected_hw_program, args.timeout)
+        print_block("BASIC protected hardware", result.raw)
+        require("Line 10: protected pin" in result.raw, "protected pin error was not line-anchored")
+        require("BASIC ERROR" in result.raw, "protected pin did not stop BASIC")
+
         blocked_program = [
             "10 SHELL \"RM /basic/not_allowed.bas\"",
             "20 PRINT \"SHOULD NOT PRINT\"",
@@ -231,6 +263,8 @@ def main(argv: list[str]) -> int:
         session.command(f"RM {debug_path}", args.timeout)
         session.command(f"RM {bridge_path}", args.timeout)
         session.command(f"RM {blocked_path}", args.timeout)
+        session.command(f"RM {typed_hw_path}", args.timeout)
+        session.command(f"RM {protected_hw_path}", args.timeout)
         print(f"PASS: BASIC nano mode validation smoke test for {path}")
         return 0
     finally:
