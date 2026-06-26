@@ -86,7 +86,7 @@ def main(argv: list[str]) -> int:
         help_result = session.command("HELP", args.timeout)
         print_block("HELP", help_result.response)
         help_tokens = set(help_result.response.split())
-        for removed in ("NEW", "LIST", "RUN", "LOAD", "SAVE", "DELETE", "PRINT", "DIR", "COPY", "MOVE", "RENAME"):
+        for removed in ("NEW", "LIST", "LOAD", "SAVE", "DELETE", "PRINT", "DIR", "COPY", "MOVE", "RENAME"):
             require(removed not in help_tokens, f"HELP still exposes {removed}")
 
         for line in (
@@ -95,7 +95,6 @@ def main(argv: list[str]) -> int:
             "10 PRINT \"HELLO\"",
             "NEW",
             "LIST",
-            "RUN",
             "LOAD TEST",
             "SAVE TEST",
             "DELETE TEST",
@@ -108,6 +107,11 @@ def main(argv: list[str]) -> int:
             print_block(line, result.raw)
             require("UNKNOWN COMMAND" in result.raw, f"{line!r} was not rejected")
             require("cpu_start:" not in result.raw, f"board rebooted while rejecting {line!r}")
+
+        result = session.command("RUN", args.timeout)
+        print_block("RUN", result.raw)
+        require("Usage: RUN /bin/name.com [args...]" in result.raw, "bare RUN did not require a .com path")
+        require("cpu_start:" not in result.raw, "board rebooted while rejecting bare RUN")
 
         print("PASS: BASIC commands are not exposed by the shell")
         return 0

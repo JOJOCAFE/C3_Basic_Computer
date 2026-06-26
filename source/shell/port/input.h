@@ -27,6 +27,7 @@ typedef struct {
 
 esp_err_t input_init(void);
 int input_read_line(char *buf, size_t len);
+int input_read_bytes(void *buf, size_t len, uint32_t timeout_ms);
 void input_write(const char *text);
 void input_write_bytes(const void *data, size_t len);
 

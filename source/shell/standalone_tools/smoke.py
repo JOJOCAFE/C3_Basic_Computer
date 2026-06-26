@@ -119,10 +119,13 @@ def main(argv: list[str]) -> int:
 
         result = session.command("HELP", args.timeout)
         print_block("HELP", result.response)
-        for command in ("HELP", "PWD", "LS", "CD", "MKDIR", "RMDIR", "CAT", "WRITE", "RM", "CP", "MV", "RENEW"):
+        for command in (
+            "HELP", "DF", "PWD", "LS", "CD", "MKDIR", "RMDIR", "CAT", "WRITE",
+            "RM", "CP", "MV", "RECV", "SEND", "RUN", "RENEW"
+        ):
             require(command in result.response.split(), f"HELP missing {command}")
 
-        for removed in ("DIR", "COPY", "MOVE", "DELETE", "RENAME", "NEW", "LIST", "RUN", "LOAD", "SAVE", "PRINT"):
+        for removed in ("DIR", "COPY", "MOVE", "DELETE", "RENAME", "NEW", "LIST", "LOAD", "SAVE", "PRINT"):
             require(removed not in result.response.split(), f"HELP exposes removed command {removed}")
 
         result = session.command("LS", args.timeout)

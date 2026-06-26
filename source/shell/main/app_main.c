@@ -80,7 +80,7 @@ static bool shell_api_self_test(void)
 
     api_capture_reset(&cap);
     if (shell_exec_command(SHELL_COMMAND_HELP, NULL, &io) != SHELL_STATUS_OK ||
-        strstr(cap.data, "HELP PWD LS") == NULL) {
+        strstr(cap.data, "HELP DF PWD LS") == NULL) {
         ESP_LOGE(TAG, "shell API HELP dispatch failed");
         return false;
     }

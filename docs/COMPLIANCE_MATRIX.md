@@ -68,10 +68,11 @@ and smoke tooling under `tools/`.
 ## Priority remediation plan (next 2 sprints)
 
 1. Resume ASM capture as a non-execution milestone.
-2. Keep native execution blocked until assembler validation and runtime guardrails exist.
+2. Keep ASM execution blocked until assembler validation and runtime guardrails exist.
 3. Preserve the dual-partition storage boundary and keep all public file commands inside `/workspace`.
-4. Pair and test the BLE HID keyboard backend when a real keyboard is available.
-5. Add system information and monitor commands only after their behavior is documented and testable.
+4. Keep native `.com` execution behind guarded C3COM `RUN` with header and CRC validation.
+5. Pair and test the BLE HID keyboard backend when a real keyboard is available.
+6. Add system information and monitor commands only after their behavior is documented and testable.
 
 ## Notes
 

@@ -7,6 +7,7 @@ firmware project.
 
 - `shell.c`
 - `shell.h`
+- `c3_com.h`
 - `c3_shell_sources.cmake`
 - `port/input.h`
 - `port/storage.h`
@@ -53,7 +54,7 @@ READY.
 4. Run `HELP` and confirm:
 
 ```text
-HELP PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV
+HELP DF PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV RECV SEND RUN EDIT
 RENEW
 ```
 
@@ -66,6 +67,9 @@ RENEW
 - `LS` lists the default workspace directories.
 - `CD`, `MKDIR`, `WRITE`, `CAT`, `CP`, `MV`, `RM`, `RMDIR`, and `RM -R`
   operate inside `/workspace`.
+- `DF` reports workspace free space.
+- `RECV` and `SEND` move files over YMODEM without leaving `/workspace`.
+- `RUN /bin/name.com [args...]` runs only validated C3COM images.
 - BASIC commands are rejected with `UNKNOWN COMMAND`.
 - Standalone shell builds do not require `source/hardware` or `source/bin`.
 - Parent firmware `/bin` services, such as `/bin/hardware`, are registered
@@ -80,4 +84,5 @@ RENEW
 - `MV` handles file and directory rename/move inside `/workspace`.
 - `DIR`, `COPY`, `MOVE`, `DELETE`, `RENAME`, and BASIC commands return
   `UNKNOWN COMMAND`.
+- Bare `RUN` prints guarded runner usage instead of entering BASIC.
 - `RENEW` requires two confirmations and formats only `workspace_fs`.

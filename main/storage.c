@@ -265,6 +265,33 @@ bool storage_workspace_ready(void)
     return s_workspace_ready;
 }
 
+bool storage_workspace_usage_bytes(size_t *total_bytes, size_t *used_bytes, size_t *free_bytes)
+{
+    size_t total = 0;
+    size_t used = 0;
+    if (!s_workspace_ready ||
+        esp_littlefs_info(STORAGE_WORKSPACE_PARTITION_LABEL, &total, &used) != ESP_OK ||
+        used > total) {
+        return false;
+    }
+
+    if (total_bytes) {
+        *total_bytes = total;
+    }
+    if (used_bytes) {
+        *used_bytes = used;
+    }
+    if (free_bytes) {
+        *free_bytes = total - used;
+    }
+    return true;
+}
+
+bool storage_workspace_free_bytes(size_t *free_bytes)
+{
+    return free_bytes && storage_workspace_usage_bytes(NULL, NULL, free_bytes);
+}
+
 bool storage_resolve_path(const char *input, char *out, size_t out_size)
 {
     if (!input || !out || out_size == 0) {

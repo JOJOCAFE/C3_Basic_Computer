@@ -72,9 +72,16 @@ When implementing or planning, treat this file as the authoritative behavior con
   - command loop
   - small file command handlers
 - Do not import OpenC6 `format`, `boot ram`, `boot xip`, XIP, PXE, OTA, UART1-only routing, or payload ABI behavior into the C3 shell sprint.
-- Keep the boot shell as a micro Linux workspace shell only: `HELP`, `PWD`,
+- Keep the boot shell as a micro Linux workspace shell only: `HELP`, `DF`, `PWD`,
   `LS`, `CD`, `MKDIR`, `RMDIR`, `CAT`, `WRITE`, `RM`, `RM -R`, `CP`, `MV`,
-  and protected `RENEW`.
+  `RECV`, `SEND`, and protected `RENEW`.
+- Shell file transfer is a protected core feature, not a removable `/bin`
+  service. Use YMODEM `RECV` / `SEND` to move `.bas`, `.asm`, `.com`, config,
+  and test files over the terminal without reflashing. `.com` transfer does not
+  imply `.com` execution.
+- Shell `RUN /bin/name.com [args...]` is guarded C3COM execution only. It must
+  validate the C3COM header before jumping, pass argv plus standard I/O through
+  the ABI, and never auto-run after transfer.
 - Active shell source and shell feature docs live in `source/shell/`.
 - Active build/test tooling lives in root `tools/`; root source is the active build target.
 - BASIC parsing code remains in the tree for a later runtime/editor entry point,
@@ -90,8 +97,12 @@ When implementing or planning, treat this file as the authoritative behavior con
   `docs/SPRINT_005_BIN_SERVICE_ABI_AND_PIPES.md` for DOS-style service and pipe
   planning. Services are firmware-linked and build-selectable for now, not
   loadable workspace executables.
-- ASM capture follows the editor/plugin boundary; native execution remains
-  blocked until a later guarded runtime sprint.
+- Sprint 007 shell YMODEM transfer and Sprint 008 guarded C3COM execution
+  precede ASM editor work. ASM nano mode is tracked in
+  `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
+- ASM capture follows the editor/plugin boundary; native C3COM execution is now
+  guarded by header validation, CRC, explicit `RUN`, and standard I/O ABI
+  callbacks.
 - BLE HID keyboard support has a compiled input boundary and boot-keyboard mapper, but real keyboard pairing remains hardware-pending.
 
 ## Protected Recovery Invariant

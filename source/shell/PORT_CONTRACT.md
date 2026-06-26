@@ -25,6 +25,7 @@ Required functions:
 ```c
 esp_err_t input_init(void);
 int input_read_line(char *buf, size_t len);
+int input_read_bytes(void *buf, size_t len, uint32_t timeout_ms);
 void input_write(const char *text);
 void input_write_bytes(const void *data, size_t len);
 ```
@@ -33,6 +34,8 @@ Behavior contract:
 
 - `input_init()` prepares the active console.
 - `input_read_line()` returns one line without the trailing newline.
+- `input_read_bytes()` reads raw terminal bytes for binary protocols such as
+  YMODEM.
 - Overlong input must be drained to the next newline before returning.
 - `input_write()` and `input_write_bytes()` must be safe from shell context.
 - USB Serial/JTAG must remain available as the recovery console.
@@ -66,6 +69,7 @@ bool storage_workspace_ready(void);
 bool storage_resolve_path(const char *input, char *out, size_t out_size);
 bool storage_normalize_workspace_path(const char *cwd, const char *input, char *out, size_t out_size);
 bool storage_resolve_workspace_path(const char *cwd, const char *input, char *out, size_t out_size);
+bool storage_workspace_usage_bytes(size_t *total, size_t *used, size_t *free_bytes);
 ```
 
 Behavior contract:
@@ -74,6 +78,8 @@ Behavior contract:
 - `..` and absolute paths must not escape `/workspace`.
 - `/` means the workspace root from the user's point of view.
 - `storage_renew_workspace()` formats only `workspace_fs`.
+- `storage_workspace_usage_bytes()` reports workspace capacity for `DF` and
+  `RECV` free-space preflight.
 - Boot must not silently format a damaged workspace.
 - `storage_workspace_ready()` tells the shell whether to print the recovery
   warning after the banner.
@@ -96,6 +102,9 @@ micro Linux shell project.
 ## Required ESP-IDF Features
 
 - ESP-IDF 5.3.x or compatible ESP-IDF version.
+- Native C3COM execution on ESP32-C3 requires executable heap availability. The
+  current project disables `CONFIG_ESP_SYSTEM_MEMPROT_FEATURE` so
+  `MALLOC_CAP_EXEC` allocation works.
 - POSIX/VFS functions used by `shell.c`:
   - `opendir`
   - `readdir`

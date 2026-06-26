@@ -176,4 +176,6 @@ These remain design goals and must be implemented as separate milestones:
 - Graphics, sound, network, timers, events, I2C, and SPI BASIC libraries.
 - Native ASM capture/execution.
 
-Native execution remains blocked until a later guarded runtime sprint.
+BASIC cannot invoke native execution. Guarded C3COM execution is available only
+from the boot shell through explicit `RUN /bin/name.com [args...]`, with C3COM
+header and CRC validation.

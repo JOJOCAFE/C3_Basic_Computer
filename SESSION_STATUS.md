@@ -4,6 +4,17 @@ Date: 2026-06-27
 
 ## Completed Today
 
+- Shell YMODEM transfer is implemented and board-tested: `DF`, `RECV [-F]`,
+  and `SEND`.
+- Guarded C3COM execution is implemented and board-tested:
+  `RUN /bin/name.com [args...]`.
+- C3COM runner validates header fields and CRC before copying code to
+  executable RAM and jumping.
+- Board smoke confirmed argv/stdout/`EXIT 0` and bad-CRC rejection.
+- ESP32-C3 memory protection is disabled in project defaults so
+  `MALLOC_CAP_EXEC` heap is available for native C3COM execution.
+- First-slice `.com` programs must be position-independent flat code; no
+  relocation loader exists yet.
 - Tiny numbered BASIC runs from nano BASIC mode with `:run`.
 - BASIC `:debug` step mode is implemented.
 - Nano/BASIC source loading uses the 64 KiB editor buffer.
@@ -34,13 +45,15 @@ Date: 2026-06-27
 
 ## Known Unstaged Local Changes
 
-None expected after the final cleanup commit.
+YMODEM transfer, guarded C3COM execution, and Sprint 007/008/009 task docs are
+ready to commit.
 
 ## Recommended Next Start
 
-1. Start the next implementation milestone with ASM nano mode:
-   `ASM /asm/name.asm` should edit and validate text only.
-2. Resume ASM capture as a non-execution milestone after the editor mode is
-   stable.
+1. Commit the board-tested YMODEM and C3COM runner work.
+2. Start Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
+3. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
+4. Resume ASM capture as a non-execution milestone after ASM editor mode is
+   stable and board-tested.
 
 Keep Going.

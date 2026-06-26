@@ -6,7 +6,8 @@ commands, safe workspace recovery, and a command API that other runtimes such as
 BASIC can call through controlled APIs.
 
 The shell is intentionally separate from BASIC and ASM. It does not expose BASIC
-commands such as `PRINT`, `LIST`, or `RUN`.
+commands such as `PRINT` or `LIST`. `RUN` is a guarded C3COM executable runner,
+not BASIC immediate mode.
 
 ## What This Folder Contains
 
@@ -156,6 +157,7 @@ Rules:
 | Command | Use |
 | --- | --- |
 | `HELP` | Print implemented commands. |
+| `DF` | Show workspace filesystem total, used, and available 1K blocks. |
 | `PWD` | Print the current workspace-relative directory. |
 | `LS [path]` | List a directory. |
 | `CD <path>` | Change directory. |
@@ -168,12 +170,16 @@ Rules:
 | `RM -R <path>` | Recursively remove a workspace subtree. |
 | `CP <src> <dst>` | Copy a file. |
 | `MV <src> <dst>` | Move or rename a file or directory. |
+| `RECV [-F] <path>` | Receive one YMODEM file to a workspace path. |
+| `SEND <path>` | Send one workspace file by YMODEM. |
+| `RUN /bin/name.com [args...]` | Run a guarded C3COM program with argv and standard I/O callbacks. |
 | `RENEW` | Rebuild the workspace filesystem after confirmation. |
 
 Examples:
 
 ```text
 PWD
+DF
 LS
 LS basic
 CD temp
@@ -181,17 +187,35 @@ WRITE note.txt hello
 CAT note.txt
 CP note.txt copy.txt
 MV copy.txt moved.txt
+RECV /basic/demo.bas
+SEND /basic/demo.bas
+RUN /bin/tool.com one two
 RM moved.txt
 CD /
 MKDIR temp/test
 RMDIR temp/test
 ```
 
+`RECV` and `SEND` are shell infrastructure, not removable `/bin` services.
+They use the terminal link in raw byte mode for the duration of one YMODEM
+transfer. `RECV` saves to the exact path given on the shell command line and
+ignores the incoming YMODEM filename for path selection. Use `RECV -F` for an
+intentional overwrite. Moving a `.com` file and running a `.com` file remain
+separate explicit operations.
+
+`RUN` is guarded C3COM execution, not BASIC immediate mode. It validates the
+C3COM header, target, size, entry offset, and CRC before copying code to
+executable RAM. Arguments are whitespace-separated in the first slice, and the
+program receives stdin/stdout/stderr callbacks through the C3COM ABI. Native
+C3COM execution on ESP32-C3 requires memory protection disabled so executable
+heap is available, and first-slice programs must be position-independent because
+there is no relocation loader yet.
+
 Not exposed by this shell:
 
 ```text
 DIR COPY MOVE DELETE RENAME
-LOAD SAVE NEW LIST RUN PRINT
+LOAD SAVE NEW LIST PRINT
 ```
 
 Parent firmware `/bin` services:
@@ -249,6 +273,8 @@ python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0
 python3 tools/renew_full_smoke.py --port /dev/ttyACM0
 python3 tools/adversarial_shell_smoke.py --port /dev/ttyACM0
 python3 tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 10
+python3 tools/ymodem_transfer_smoke.py --port /dev/ttyACM0
+python3 tools/c3com_fixture_smoke.py --smoke --port /dev/ttyACM0
 ```
 
 Host-only syntax checks:

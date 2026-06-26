@@ -118,6 +118,8 @@ Deferred
 ```text
 HELP
 
+DF
+
 PWD
 
 LS
@@ -137,6 +139,12 @@ RM
 CP
 
 MV
+
+RECV
+
+SEND
+
+RUN
 ```
 
 ---
@@ -176,18 +184,39 @@ Examples
 
 `EDIT <path>` is the shell command for the text editor. `BASIC <path>` calls the
 same nano editor service with the BASIC plugin selected. Future `ASM <path>`
-should call nano with the ASM plugin selected. Native ASM execution remains
-blocked until a later guarded runtime sprint.
+should call nano with the ASM plugin selected. Native ASM capture remains a
+text-validation milestone; native C3COM execution is a separate guarded
+`RUN /bin/name.com [args...]` path.
 
 ---
 
 ## System Commands
 
-Only one system command is exposed by the current boot shell:
+Current system and transfer commands exposed by the boot shell:
 
 ```text
+DF
+RECV [-F] <path>
+SEND <path>
+RUN /bin/name.com [args...]
 RENEW
 ```
+
+`DF` prints workspace capacity in Unix-style 1K-block columns.
+
+`RECV` and `SEND` use YMODEM over the terminal link. They are shell
+infrastructure, not removable `/bin` services. `RECV` writes to the exact path
+on the command line, ignores the incoming YMODEM filename for path selection,
+rejects existing files unless `-F` is present, and checks free workspace space
+before accepting file data.
+
+`RUN` validates a C3COM header, ESP32-C3 RV32 target, size, entry offset, and
+CRC before copying code to executable RAM and jumping. It passes
+whitespace-separated argv plus stdin/stdout/stderr callbacks through the C3COM
+ABI. Transferring a `.com` file never auto-runs it. On ESP32-C3 this native
+runner requires memory protection disabled so executable heap is available, and
+first-slice `.com` files must be position-independent flat code because no
+relocation loader exists yet.
 
 `RENEW` asks twice, formats only `workspace_fs`, recreates the default
 workspace layout, and returns to the prompt. Broader system information
@@ -260,8 +289,8 @@ current bridge allows `SHELL "PWD"`, `SHELL "CAT <file>"`, `HARDWARE "gpio read
 -p <pin>"`, and `HARDWARE "adc read -p <pin>"`. Directory listing from BASIC is
 deferred until it has a stack-safe adapter. The bridge blocks destructive or
 protected commands such as `RENEW`, `RM`, `RM -R`, `WRITE`, `CP`, `MV`, and
-native execution. `ASM <path>` remains a planned shell front end to nano ASM
-mode.
+native C3COM execution. `ASM <path>` remains a planned shell front end to nano
+ASM mode.
 
 Preferred BASIC hardware access is typed and calls `source/hardware` directly,
 not the shell or `/bin/hardware` text parser:
@@ -339,14 +368,16 @@ Detailed behavior is documented in the Monitor documentation.
 `HELP` prints the implemented firmware command list only:
 
 ```text
-HELP PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV RENEW
+HELP DF PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV RECV SEND RUN EDIT
+RENEW
 ```
 
 Per-command help is deferred. `BASIC` remains intentionally omitted from
 firmware `HELP` because it is not boot-shell immediate mode. ASM, system
 information, graphics, sound, hardware services, and monitor commands must stay
 out of `HELP` until their runtime behavior is implemented and tested as shell
-commands. Current hardware access remains a `/bin` service.
+commands. `RUN` is present only as guarded C3COM execution. Current hardware
+access remains a `/bin` service.
 
 ---
 

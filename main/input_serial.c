@@ -56,6 +56,14 @@ int input_read_line(char *buf, size_t len)
     return (int)idx;
 }
 
+int input_read_bytes(void *buf, size_t len, uint32_t timeout_ms)
+{
+    if (!buf || len == 0) {
+        return 0;
+    }
+    return usb_serial_jtag_read_bytes(buf, len, pdMS_TO_TICKS(timeout_ms));
+}
+
 void input_write(const char *text)
 {
     if (!text) {

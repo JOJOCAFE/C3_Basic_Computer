@@ -16,6 +16,8 @@
 esp_err_t storage_init(void);
 esp_err_t storage_renew_workspace(void);
 bool storage_workspace_ready(void);
+bool storage_workspace_usage_bytes(size_t *total_bytes, size_t *used_bytes, size_t *free_bytes);
+bool storage_workspace_free_bytes(size_t *free_bytes);
 bool storage_resolve_path(const char *input, char *out, size_t out_size);
 bool storage_normalize_workspace_path(const char *cwd, const char *input, char *out, size_t out_size);
 bool storage_resolve_workspace_path(const char *cwd, const char *input, char *out, size_t out_size);

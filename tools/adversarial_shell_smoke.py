@@ -128,7 +128,6 @@ def main(argv: list[str]) -> int:
             "10 PRINT \"NOPE\"",
             "NEW",
             "LIST",
-            "RUN",
             "LOAD X",
             "SAVE X",
             "DELETE X",
@@ -140,6 +139,10 @@ def main(argv: list[str]) -> int:
             result = session.command(line, args.timeout)
             print_block(line, result.response)
             require("UNKNOWN COMMAND" in result.response, f"{line!r} should not be exposed by the shell")
+
+        result = session.command("RUN", args.timeout)
+        print_block("RUN", result.response)
+        require("Usage: RUN /bin/name.com [args...]" in result.response, "bare RUN did not show guarded runner usage")
 
         for line, expected in (
             ("LS ..", "/basic"),

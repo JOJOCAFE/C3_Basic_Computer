@@ -186,4 +186,4 @@ Sprint 002 is complete. Use [`docs/SPRINT_002_TASK_LIST.md`](docs/SPRINT_002_TAS
 
 Related plan: [`docs/SPRINT_002_WORKSPACE_SHELL_AND_INPUT_PLAN.md`](docs/SPRINT_002_WORKSPACE_SHELL_AND_INPUT_PLAN.md) captures the recovery-partition, micro Linux workspace shell, PC terminal, and future BLE HID keyboard input boundary.
 
-ASM capture remains documented in [`docs/SPRINT_001_PHASE2A_ASM_CAPTURE.md`](docs/SPRINT_001_PHASE2A_ASM_CAPTURE.md). It is the next candidate milestone after Sprint 002, but native execution stays blocked until a later guarded runtime sprint.
+ASM capture remains documented in [`docs/SPRINT_001_PHASE2A_ASM_CAPTURE.md`](docs/SPRINT_001_PHASE2A_ASM_CAPTURE.md). The current next candidate milestone is Sprint 009 ASM nano mode. Native C3COM execution now exists only through guarded `RUN /bin/name.com [args...]`; ASM execution and relocation support remain deferred.

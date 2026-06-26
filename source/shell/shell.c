@@ -1,10 +1,12 @@
 #include "shell.h"
 
+#include "c3_com.h"
 #include "input.h"
 #include "storage.h"
 
 #include <ctype.h>
 #include <dirent.h>
+#include <esp_heap_caps.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +17,23 @@
 #define SHELL_BUF 256
 #define FILE_IO_BUF 128
 #define SHELL_PIPE_BUF 2048
+#define YMODEM_PACKET_128 128
+#define YMODEM_PACKET_1K 1024
+#define YMODEM_TIMEOUT_MS 10000
+#define YMODEM_START_RETRIES 16
+#define YMODEM_MAX_FILE_SIZE (512u * 1024u)
+#define C3_COM_ARG_MAX 8
+
+enum {
+    YMODEM_SOH = 0x01,
+    YMODEM_STX = 0x02,
+    YMODEM_EOT = 0x04,
+    YMODEM_ACK = 0x06,
+    YMODEM_NAK = 0x15,
+    YMODEM_CAN = 0x18,
+    YMODEM_CRC_REQ = 'C',
+    YMODEM_PAD = 0x1A,
+};
 
 static char g_workspace_cwd[STORAGE_PATH_MAX];
 static const shell_exec_io_t *g_exec_io;
@@ -192,8 +211,37 @@ void shell_register_external_exec(shell_external_exec_fn fn)
 static void shell_help(void)
 {
     shell_puts(
-        "HELP PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV EDIT\r\n"
+        "HELP DF PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV RECV SEND RUN EDIT\r\n"
         "RENEW\r\n");
+}
+
+static size_t bytes_to_1k_blocks(size_t bytes)
+{
+    return (bytes + 1023u) / 1024u;
+}
+
+static void shell_df(const char *args)
+{
+    if (args && *skip_ws(args) != '\0') {
+        shell_error("Usage: DF", SHELL_STATUS_BAD_INPUT);
+        return;
+    }
+
+    size_t total = 0;
+    size_t used = 0;
+    size_t free_bytes = 0;
+    if (!storage_workspace_usage_bytes(&total, &used, &free_bytes)) {
+        shell_error("DF failed", SHELL_STATUS_IO_ERROR);
+        return;
+    }
+
+    shell_puts("Filesystem 1K-blocks Used Available Mounted on\r\n");
+    char line[96];
+    snprintf(line, sizeof(line), "workspace_fs %u %u %u /\r\n",
+             (unsigned)bytes_to_1k_blocks(total),
+             (unsigned)bytes_to_1k_blocks(used),
+             (unsigned)bytes_to_1k_blocks(free_bytes));
+    shell_puts(line);
 }
 
 static void shell_pwd(void)
@@ -647,11 +695,648 @@ static void shell_move(char *args)
     shell_ok();
 }
 
+static uint16_t ymodem_crc16(const uint8_t *data, size_t len)
+{
+    uint16_t crc = 0;
+    for (size_t i = 0; i < len; i++) {
+        crc ^= (uint16_t)data[i] << 8;
+        for (int bit = 0; bit < 8; bit++) {
+            crc = (crc & 0x8000) ? (uint16_t)((crc << 1) ^ 0x1021) : (uint16_t)(crc << 1);
+        }
+    }
+    return crc;
+}
+
+static void ymodem_put_byte(uint8_t ch)
+{
+    shell_write_bytes(&ch, 1);
+}
+
+static void ymodem_write_bytes(const uint8_t *data, size_t len)
+{
+    while (len > 0) {
+        size_t chunk = len > 64 ? 64 : len;
+        shell_write_bytes(data, chunk);
+        data += chunk;
+        len -= chunk;
+    }
+}
+
+static bool ymodem_read_exact(uint8_t *buf, size_t len, uint32_t timeout_ms)
+{
+    size_t used = 0;
+    while (used < len) {
+        int n = input_read_bytes(buf + used, len - used, timeout_ms);
+        if (n <= 0) {
+            return false;
+        }
+        used += (size_t)n;
+    }
+    return true;
+}
+
+static int ymodem_read_byte(uint32_t timeout_ms)
+{
+    uint8_t ch;
+    if (!ymodem_read_exact(&ch, 1, timeout_ms)) {
+        return -1;
+    }
+    return ch;
+}
+
+static int ymodem_read_packet(uint8_t *data, size_t *data_len, uint8_t *block_no)
+{
+    int first = ymodem_read_byte(YMODEM_TIMEOUT_MS);
+    if (first < 0) {
+        return 0;
+    }
+    if (first == YMODEM_EOT) {
+        return 2;
+    }
+    if (first == YMODEM_CAN) {
+        int second = ymodem_read_byte(1000);
+        return second == YMODEM_CAN ? 3 : -1;
+    }
+    if (first != YMODEM_SOH && first != YMODEM_STX) {
+        return -1;
+    }
+
+    size_t len = first == YMODEM_SOH ? YMODEM_PACKET_128 : YMODEM_PACKET_1K;
+    uint8_t header[2];
+    uint8_t crc_bytes[2];
+    if (!ymodem_read_exact(header, sizeof(header), YMODEM_TIMEOUT_MS) ||
+        !ymodem_read_exact(data, len, YMODEM_TIMEOUT_MS) ||
+        !ymodem_read_exact(crc_bytes, sizeof(crc_bytes), YMODEM_TIMEOUT_MS)) {
+        return -1;
+    }
+
+    if ((uint8_t)(header[0] + header[1]) != 0xFF) {
+        return -1;
+    }
+
+    uint16_t got_crc = ((uint16_t)crc_bytes[0] << 8) | crc_bytes[1];
+    if (ymodem_crc16(data, len) != got_crc) {
+        return -1;
+    }
+
+    *block_no = header[0];
+    *data_len = len;
+    return 1;
+}
+
+static bool ymodem_parse_size(const uint8_t *block, size_t *file_size)
+{
+    size_t name_len = strnlen((const char *)block, YMODEM_PACKET_128);
+    if (name_len == 0 || name_len + 1 >= YMODEM_PACKET_128) {
+        return false;
+    }
+
+    const char *size_text = (const char *)block + name_len + 1;
+    if (*size_text == '\0') {
+        return false;
+    }
+
+    char *end = NULL;
+    unsigned long size = strtoul(size_text, &end, 10);
+    if (end == size_text || size > YMODEM_MAX_FILE_SIZE) {
+        return false;
+    }
+
+    *file_size = (size_t)size;
+    return true;
+}
+
+static const char *path_basename(const char *path)
+{
+    const char *base = strrchr(path, '/');
+    return base ? base + 1 : path;
+}
+
+static shell_status_t ymodem_wait_for_crc_request(void)
+{
+    for (int i = 0; i < YMODEM_START_RETRIES; i++) {
+        int ch = ymodem_read_byte(YMODEM_TIMEOUT_MS);
+        if (ch == YMODEM_CRC_REQ) {
+            return SHELL_STATUS_OK;
+        }
+        if (ch == YMODEM_CAN) {
+            int second = ymodem_read_byte(1000);
+            if (second == YMODEM_CAN) {
+                return SHELL_STATUS_CANCELLED;
+            }
+        }
+    }
+    return SHELL_STATUS_IO_ERROR;
+}
+
+static shell_status_t ymodem_send_packet(uint8_t block_no, const uint8_t *data, size_t len)
+{
+    uint8_t *packet = malloc(len + 5);
+    if (!packet) {
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    packet[0] = len == YMODEM_PACKET_128 ? YMODEM_SOH : YMODEM_STX;
+    packet[1] = block_no;
+    packet[2] = (uint8_t)~block_no;
+    memcpy(packet + 3, data, len);
+    uint16_t crc = ymodem_crc16(data, len);
+    packet[3 + len] = (uint8_t)(crc >> 8);
+    packet[4 + len] = (uint8_t)crc;
+    ymodem_write_bytes(packet, len + 5);
+    free(packet);
+
+    while (true) {
+        int reply = ymodem_read_byte(YMODEM_TIMEOUT_MS);
+        if (reply == YMODEM_ACK) {
+            return SHELL_STATUS_OK;
+        }
+        if (reply == YMODEM_CRC_REQ) {
+            continue;
+        }
+        if (reply == YMODEM_CAN) {
+            int second = ymodem_read_byte(1000);
+            if (second == YMODEM_CAN) {
+                return SHELL_STATUS_CANCELLED;
+            }
+        }
+        return SHELL_STATUS_IO_ERROR;
+    }
+}
+
+static shell_status_t shell_recv_file(char *args)
+{
+    if ((shell_exec_flags() & SHELL_EXEC_ALLOW_INTERACTIVE) == 0) {
+        shell_error("Not allowed", SHELL_STATUS_NOT_ALLOWED);
+        return SHELL_STATUS_NOT_ALLOWED;
+    }
+
+    bool force = false;
+    char *cursor = args;
+    char *path = next_token(&cursor);
+    if (path && strcasecmp(path, "-F") == 0) {
+        force = true;
+        path = next_token(&cursor);
+    }
+
+    if (!path || *skip_ws(cursor) != '\0') {
+        shell_error("Usage: RECV [-F] <path>", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    char resolved[STORAGE_PATH_MAX];
+    if (!resolve_workspace_arg(path, resolved, sizeof(resolved)) || !workspace_child_path(resolved)) {
+        shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+        return SHELL_STATUS_BAD_PATH;
+    }
+
+    struct stat st;
+    size_t existing_size = 0;
+    if (stat(resolved, &st) == 0) {
+        if (S_ISDIR(st.st_mode)) {
+            shell_error("Is directory", SHELL_STATUS_IS_DIRECTORY);
+            return SHELL_STATUS_IS_DIRECTORY;
+        }
+        if (!force) {
+            shell_error("Exists", SHELL_STATUS_EXISTS);
+            return SHELL_STATUS_EXISTS;
+        }
+        if (st.st_size > 0) {
+            existing_size = (size_t)st.st_size;
+        }
+    }
+
+    uint8_t *block = malloc(YMODEM_PACKET_1K);
+    if (!block) {
+        shell_error("Out of memory", SHELL_STATUS_IO_ERROR);
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    size_t block_len = 0;
+    uint8_t block_no = 0;
+    int packet_status = 0;
+    for (int i = 0; i < YMODEM_START_RETRIES; i++) {
+        ymodem_put_byte(YMODEM_CRC_REQ);
+        packet_status = ymodem_read_packet(block, &block_len, &block_no);
+        if (packet_status == 1) {
+            break;
+        }
+        if (packet_status == 3) {
+            free(block);
+            shell_error("Transfer cancelled", SHELL_STATUS_CANCELLED);
+            return SHELL_STATUS_CANCELLED;
+        }
+    }
+
+    if (packet_status != 1 || block_no != 0 || block_len != YMODEM_PACKET_128) {
+        free(block);
+        shell_error("YMODEM header failed", SHELL_STATUS_IO_ERROR);
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    size_t file_size = 0;
+    if (!ymodem_parse_size(block, &file_size)) {
+        ymodem_put_byte(YMODEM_CAN);
+        ymodem_put_byte(YMODEM_CAN);
+        free(block);
+        shell_error("YMODEM size missing", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    size_t free_bytes = 0;
+    if (!storage_workspace_free_bytes(&free_bytes) ||
+        file_size > free_bytes + existing_size) {
+        ymodem_put_byte(YMODEM_CAN);
+        ymodem_put_byte(YMODEM_CAN);
+        free(block);
+        shell_error("Not enough space", SHELL_STATUS_IO_ERROR);
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    FILE *f = fopen(resolved, "wb");
+    if (!f) {
+        ymodem_put_byte(YMODEM_CAN);
+        ymodem_put_byte(YMODEM_CAN);
+        free(block);
+        shell_error("RECV failed", SHELL_STATUS_IO_ERROR);
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    ymodem_put_byte(YMODEM_ACK);
+    ymodem_put_byte(YMODEM_CRC_REQ);
+
+    size_t written = 0;
+    uint8_t expected = 1;
+    bool ok = true;
+    while (written < file_size) {
+        packet_status = ymodem_read_packet(block, &block_len, &block_no);
+        if (packet_status != 1 || block_no != expected) {
+            ok = false;
+            break;
+        }
+
+        size_t remaining = file_size - written;
+        size_t to_write = remaining < block_len ? remaining : block_len;
+        if (to_write > 0 && fwrite(block, 1, to_write, f) != to_write) {
+            ok = false;
+            break;
+        }
+        written += to_write;
+        expected++;
+        ymodem_put_byte(YMODEM_ACK);
+    }
+
+    if (ok) {
+        packet_status = ymodem_read_packet(block, &block_len, &block_no);
+        if (packet_status == 2) {
+            ymodem_put_byte(YMODEM_NAK);
+            packet_status = ymodem_read_packet(block, &block_len, &block_no);
+        }
+        if (packet_status == 2) {
+            ymodem_put_byte(YMODEM_ACK);
+            ymodem_put_byte(YMODEM_CRC_REQ);
+            packet_status = ymodem_read_packet(block, &block_len, &block_no);
+            if (packet_status == 1 && block_no == 0) {
+                ymodem_put_byte(YMODEM_ACK);
+            }
+        } else {
+            ok = false;
+        }
+    }
+
+    if (fclose(f) != 0) {
+        ok = false;
+    }
+    free(block);
+
+    if (!ok || written != file_size) {
+        remove(resolved);
+        shell_error("RECV failed", SHELL_STATUS_IO_ERROR);
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    shell_ok();
+    return SHELL_STATUS_OK;
+}
+
+static shell_status_t shell_send_file(char *args)
+{
+    if ((shell_exec_flags() & SHELL_EXEC_ALLOW_INTERACTIVE) == 0) {
+        shell_error("Not allowed", SHELL_STATUS_NOT_ALLOWED);
+        return SHELL_STATUS_NOT_ALLOWED;
+    }
+
+    char *cursor = args;
+    char *path = next_token(&cursor);
+    if (!path || *skip_ws(cursor) != '\0') {
+        shell_error("Usage: SEND <path>", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    char resolved[STORAGE_PATH_MAX];
+    if (!resolve_workspace_arg(path, resolved, sizeof(resolved))) {
+        shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+        return SHELL_STATUS_BAD_PATH;
+    }
+
+    struct stat st;
+    if (stat(resolved, &st) != 0) {
+        shell_error("Open failed", SHELL_STATUS_NOT_FOUND);
+        return SHELL_STATUS_NOT_FOUND;
+    }
+    if (S_ISDIR(st.st_mode)) {
+        shell_error("Is directory", SHELL_STATUS_IS_DIRECTORY);
+        return SHELL_STATUS_IS_DIRECTORY;
+    }
+    if (st.st_size < 0 || (unsigned long)st.st_size > YMODEM_MAX_FILE_SIZE) {
+        shell_error("File too large", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    size_t file_size = (size_t)st.st_size;
+    uint8_t *file_data = NULL;
+    if (file_size > 0) {
+        file_data = malloc(file_size);
+        if (!file_data) {
+            shell_error("Out of memory", SHELL_STATUS_IO_ERROR);
+            return SHELL_STATUS_IO_ERROR;
+        }
+    }
+
+    FILE *f = fopen(resolved, "r");
+    if (!f) {
+        free(file_data);
+        shell_error("Open failed", SHELL_STATUS_NOT_FOUND);
+        return SHELL_STATUS_NOT_FOUND;
+    }
+    if (file_size > 0 && fread(file_data, 1, file_size, f) != file_size) {
+        free(file_data);
+        fclose(f);
+        shell_error("Read failed", SHELL_STATUS_IO_ERROR);
+        return SHELL_STATUS_IO_ERROR;
+    }
+    fclose(f);
+
+    shell_status_t status = ymodem_wait_for_crc_request();
+    if (status != SHELL_STATUS_OK) {
+        free(file_data);
+        shell_error(status == SHELL_STATUS_CANCELLED ? "Transfer cancelled" : "YMODEM start failed", status);
+        return status;
+    }
+
+    uint8_t *block = calloc(1, YMODEM_PACKET_1K);
+    if (!block) {
+        free(file_data);
+        shell_error("Out of memory", SHELL_STATUS_IO_ERROR);
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    const char *base = path_basename(path);
+    size_t base_len = strlen(base);
+    if (base_len == 0 || base_len + 12 >= YMODEM_PACKET_128) {
+        free(block);
+        free(file_data);
+        shell_error("Filename too long", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+    snprintf((char *)block, YMODEM_PACKET_128, "%s", base);
+    snprintf((char *)block + base_len + 1, YMODEM_PACKET_128 - base_len - 1, "%ld", (long)file_size);
+    status = ymodem_send_packet(0, block, YMODEM_PACKET_128);
+
+    uint8_t block_no = 1;
+    size_t offset = 0;
+    while (status == SHELL_STATUS_OK && offset < file_size) {
+        size_t n = file_size - offset;
+        if (n > YMODEM_PACKET_1K) {
+            n = YMODEM_PACKET_1K;
+        }
+        memcpy(block, file_data + offset, n);
+        offset += n;
+        if (n < YMODEM_PACKET_1K) {
+            memset(block + n, YMODEM_PAD, YMODEM_PACKET_1K - n);
+        }
+        status = ymodem_send_packet(block_no++, block, YMODEM_PACKET_1K);
+    }
+
+    if (status == SHELL_STATUS_OK) {
+        ymodem_put_byte(YMODEM_EOT);
+        int reply = ymodem_read_byte(YMODEM_TIMEOUT_MS);
+        if (reply == YMODEM_NAK) {
+            ymodem_put_byte(YMODEM_EOT);
+            reply = ymodem_read_byte(YMODEM_TIMEOUT_MS);
+        }
+        if (reply != YMODEM_ACK) {
+            status = SHELL_STATUS_IO_ERROR;
+        }
+    }
+
+    if (status == SHELL_STATUS_OK) {
+        int reply = ymodem_read_byte(YMODEM_TIMEOUT_MS);
+        if (reply == YMODEM_CRC_REQ) {
+            memset(block, 0, YMODEM_PACKET_128);
+            status = ymodem_send_packet(0, block, YMODEM_PACKET_128);
+        } else {
+            status = SHELL_STATUS_IO_ERROR;
+        }
+    }
+
+    free(block);
+    free(file_data);
+
+    if (status != SHELL_STATUS_OK) {
+        shell_error(status == SHELL_STATUS_CANCELLED ? "Transfer cancelled" : "SEND failed", status);
+        return status;
+    }
+
+    shell_ok();
+    return SHELL_STATUS_OK;
+}
+
+static uint32_t c3_crc32(const uint8_t *data, size_t len)
+{
+    uint32_t crc = 0xFFFFFFFFu;
+    for (size_t i = 0; i < len; i++) {
+        crc ^= data[i];
+        for (int bit = 0; bit < 8; bit++) {
+            uint32_t mask = 0u - (crc & 1u);
+            crc = (crc >> 1) ^ (0xEDB88320u & mask);
+        }
+    }
+    return ~crc;
+}
+
+static void c3_com_copy_to_exec(void *dst, const uint8_t *src, size_t len)
+{
+    uint32_t *out = (uint32_t *)dst;
+    size_t words = (len + 3u) / 4u;
+    for (size_t i = 0; i < words; i++) {
+        uint32_t value = 0;
+        size_t offset = i * 4u;
+        for (size_t j = 0; j < 4u && offset + j < len; j++) {
+            value |= (uint32_t)src[offset + j] << (j * 8u);
+        }
+        out[i] = value;
+    }
+}
+
+static bool path_has_com_ext(const char *path)
+{
+    size_t len = path ? strlen(path) : 0;
+    return len > 4 && strcasecmp(path + len - 4, ".com") == 0;
+}
+
+static void c3_com_stdout_write(const void *data, size_t len)
+{
+    shell_write_bytes(data, len);
+}
+
+static void c3_com_stderr_write(const void *data, size_t len)
+{
+    shell_write_bytes(data, len);
+}
+
+static int c3_com_stdin_read_line(char *buf, size_t len)
+{
+    return shell_read_line(buf, len);
+}
+
+static shell_status_t shell_run_com(char *args)
+{
+    if ((shell_exec_flags() & SHELL_EXEC_ALLOW_INTERACTIVE) == 0) {
+        shell_error("Not allowed", SHELL_STATUS_NOT_ALLOWED);
+        return SHELL_STATUS_NOT_ALLOWED;
+    }
+
+    char *cursor = args;
+    char *path = next_token(&cursor);
+    if (!path) {
+        shell_error("Usage: RUN /bin/name.com [args...]", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+    if (!path_has_com_ext(path)) {
+        shell_error("Only .com files can run", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    const char *argv[C3_COM_ARG_MAX + 1];
+    int argc = 0;
+    argv[argc++] = path;
+    while (argc < C3_COM_ARG_MAX) {
+        char *arg = next_token(&cursor);
+        if (!arg) {
+            break;
+        }
+        argv[argc++] = arg;
+    }
+    argv[argc] = NULL;
+    if (*skip_ws(cursor) != '\0') {
+        shell_error("Too many arguments", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    char resolved[STORAGE_PATH_MAX];
+    if (!resolve_workspace_arg(path, resolved, sizeof(resolved)) || !workspace_child_path(resolved)) {
+        shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+        return SHELL_STATUS_BAD_PATH;
+    }
+
+    struct stat st;
+    if (stat(resolved, &st) != 0) {
+        shell_error("Open failed", SHELL_STATUS_NOT_FOUND);
+        return SHELL_STATUS_NOT_FOUND;
+    }
+    if (S_ISDIR(st.st_mode)) {
+        shell_error("Is directory", SHELL_STATUS_IS_DIRECTORY);
+        return SHELL_STATUS_IS_DIRECTORY;
+    }
+    if (st.st_size < (off_t)sizeof(c3_com_header_t) ||
+        st.st_size > (off_t)(sizeof(c3_com_header_t) + C3_COM_MAX_CODE_SIZE)) {
+        shell_error("Bad .com size", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    FILE *f = fopen(resolved, "rb");
+    if (!f) {
+        shell_error("Open failed", SHELL_STATUS_NOT_FOUND);
+        return SHELL_STATUS_NOT_FOUND;
+    }
+
+    c3_com_header_t header;
+    bool ok = fread(&header, 1, sizeof(header), f) == sizeof(header);
+    if (!ok ||
+        header.magic[0] != C3_COM_MAGIC_0 ||
+        header.magic[1] != C3_COM_MAGIC_1 ||
+        header.magic[2] != C3_COM_MAGIC_2 ||
+        header.magic[3] != C3_COM_MAGIC_3 ||
+        header.header_size < sizeof(c3_com_header_t) ||
+        header.abi_version != C3_COM_ABI_VERSION ||
+        header.target != C3_COM_TARGET_ESP32C3_RV32 ||
+        header.code_size == 0 ||
+        header.code_size > C3_COM_MAX_CODE_SIZE ||
+        header.code_offset < header.header_size ||
+        header.entry_offset >= header.code_size ||
+        (header.entry_offset & 0x3u) != 0 ||
+        (uint64_t)header.code_offset + header.code_size > (uint64_t)st.st_size) {
+        fclose(f);
+        shell_error("Invalid .com header", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    uint8_t *image = malloc(header.code_size);
+    if (!image) {
+        fclose(f);
+        shell_error("Out of memory", SHELL_STATUS_IO_ERROR);
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    if (fseek(f, (long)header.code_offset, SEEK_SET) != 0 ||
+        fread(image, 1, header.code_size, f) != header.code_size ||
+        c3_crc32(image, header.code_size) != header.code_crc32) {
+        free(image);
+        fclose(f);
+        shell_error("Invalid .com image", SHELL_STATUS_BAD_INPUT);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+    fclose(f);
+
+    void *code = heap_caps_aligned_alloc(4, (header.code_size + 3u) & ~3u, MALLOC_CAP_EXEC);
+    if (!code) {
+        free(image);
+        shell_error("No exec memory", SHELL_STATUS_IO_ERROR);
+        return SHELL_STATUS_IO_ERROR;
+    }
+    c3_com_copy_to_exec(code, image, header.code_size);
+    free(image);
+
+    __builtin___clear_cache((char *)code, (char *)code + header.code_size);
+
+    c3_com_api_t api = {
+        .abi_version = C3_COM_ABI_VERSION,
+        .argc = argc,
+        .argv = argv,
+        .stdin_read_line = c3_com_stdin_read_line,
+        .stdout_write = c3_com_stdout_write,
+        .stderr_write = c3_com_stderr_write,
+    };
+    c3_com_entry_fn entry = (c3_com_entry_fn)(void *)(code + header.entry_offset);
+    int rc = entry(&api, argc, argv);
+    heap_caps_free(code);
+
+    char line[40];
+    snprintf(line, sizeof(line), "\r\nEXIT %d\r\n", rc);
+    shell_puts(line);
+    shell_set_status(rc == 0 ? SHELL_STATUS_OK : SHELL_STATUS_IO_ERROR);
+    return rc == 0 ? SHELL_STATUS_OK : SHELL_STATUS_IO_ERROR;
+}
+
 static void shell_dispatch_command(shell_command_t command, char *arg)
 {
     switch (command) {
     case SHELL_COMMAND_HELP:
         shell_help();
+        break;
+    case SHELL_COMMAND_DF:
+        shell_df(arg);
         break;
     case SHELL_COMMAND_PWD:
         shell_pwd();
@@ -682,6 +1367,15 @@ static void shell_dispatch_command(shell_command_t command, char *arg)
         break;
     case SHELL_COMMAND_MV:
         shell_move(arg);
+        break;
+    case SHELL_COMMAND_RECV:
+        shell_recv_file(arg);
+        break;
+    case SHELL_COMMAND_SEND:
+        shell_send_file(arg);
+        break;
+    case SHELL_COMMAND_RUN:
+        shell_run_com(arg);
         break;
     case SHELL_COMMAND_RENEW:
         shell_renew_workspace();
@@ -721,6 +1415,8 @@ shell_status_t shell_command_from_name(const char *name, shell_command_t *out)
 
     if (strcasecmp(name, "HELP") == 0) {
         *out = SHELL_COMMAND_HELP;
+    } else if (strcasecmp(name, "DF") == 0) {
+        *out = SHELL_COMMAND_DF;
     } else if (strcasecmp(name, "PWD") == 0) {
         *out = SHELL_COMMAND_PWD;
     } else if (strcasecmp(name, "LS") == 0) {
@@ -741,6 +1437,12 @@ shell_status_t shell_command_from_name(const char *name, shell_command_t *out)
         *out = SHELL_COMMAND_CP;
     } else if (strcasecmp(name, "MV") == 0) {
         *out = SHELL_COMMAND_MV;
+    } else if (strcasecmp(name, "RECV") == 0) {
+        *out = SHELL_COMMAND_RECV;
+    } else if (strcasecmp(name, "SEND") == 0) {
+        *out = SHELL_COMMAND_SEND;
+    } else if (strcasecmp(name, "RUN") == 0) {
+        *out = SHELL_COMMAND_RUN;
     } else if (strcasecmp(name, "RENEW") == 0) {
         *out = SHELL_COMMAND_RENEW;
     } else {

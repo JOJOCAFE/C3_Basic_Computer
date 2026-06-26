@@ -7,7 +7,8 @@ current executable subset.
 
 | Case | Commands | Expected result | Covered by |
 | --- | --- | --- | --- |
-| Show commands | `HELP` | Lists `HELP PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV` and `RENEW`. | `no_basic_shell_smoke.py`, `adversarial_shell_smoke.py` |
+| Show commands | `HELP` | Lists `HELP DF PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV RECV SEND RUN` and `RENEW`. | `no_basic_shell_smoke.py`, `adversarial_shell_smoke.py` |
+| Show workspace free space | `DF` | Prints Unix-style `Filesystem 1K-blocks Used Available Mounted on` output for `/`. | `workspace_shell_smoke.py` |
 | Show current directory | `PWD` | Prints `/` at boot and current path after `CD`. | `workspace_shell_smoke.py` |
 | List root | `LS` | Shows workspace directories with `/` prefix. | `workspace_shell_smoke.py` |
 | Create and enter directory | `MKDIR temp/name`, `CD temp/name` | Returns `OK`; `PWD` shows `/temp/name`. | `workspace_shell_smoke.py` |
@@ -15,6 +16,10 @@ current executable subset.
 | Copy file | `CP note.txt copy.txt` | Destination file exists with same content. | `workspace_shell_smoke.py` |
 | Move file | `MV copy.txt moved.txt` | Source disappears; destination exists. | `workspace_shell_smoke.py` |
 | Move directory | `MV move-dir moved-dir` | Directory and child files move together. | `workspace_shell_smoke.py` |
+| Receive text file | `RECV /basic/demo.bas` plus YMODEM send | File is saved byte-for-byte under `/workspace/basic`. | `ymodem_transfer_smoke.py` |
+| Receive binary file | `RECV /bin/test.com` plus YMODEM send | Binary file is saved byte-for-byte under `/workspace/bin`. | `ymodem_transfer_smoke.py` |
+| Send file | `SEND /basic/demo.bas` plus YMODEM receive | Host receives the exact file size and bytes. | `ymodem_transfer_smoke.py` |
+| Run C3COM file | `RUN /bin/tool.com one two` | Valid C3COM header is checked, argv is passed, stdout prints, and exit code is reported. | `c3com_fixture_smoke.py` |
 | Remove file | `RM note.txt` | File is removed. | `workspace_shell_smoke.py` |
 | Remove empty directory | `MKDIR empty-dir`, `RMDIR empty-dir` | Empty directory is removed. | `workspace_shell_smoke.py` |
 | Remove tree | `RM -R tree` | Directory subtree is removed. | `workspace_shell_smoke.py` |
@@ -24,9 +29,10 @@ current executable subset.
 
 | Case | Commands | Expected result | Covered by |
 | --- | --- | --- | --- |
-| BASIC not exposed | `PRINT 1+2`, `10 PRINT "X"`, `NEW`, `LIST`, `RUN`, `LOAD X`, `SAVE X` | `UNKNOWN COMMAND`; no reboot. | `no_basic_shell_smoke.py`, `adversarial_shell_smoke.py` |
+| BASIC not exposed | `PRINT 1+2`, `10 PRINT "X"`, `NEW`, `LIST`, `LOAD X`, `SAVE X` | `UNKNOWN COMMAND`; no reboot. | `no_basic_shell_smoke.py`, `adversarial_shell_smoke.py` |
 | Legacy aliases not exposed | `DIR`, `COPY A B`, `MOVE A B`, `DELETE X`, `RENAME A B` | `UNKNOWN COMMAND`. | `no_basic_shell_smoke.py`, `adversarial_shell_smoke.py` |
 | Bad text commands | `THIS IS NOT A COMMAND`, `#$%^&*`, `123ABC` | `UNKNOWN COMMAND`; prompt returns. | `adversarial_shell_smoke.py` |
+| Bare RUN | `RUN` | Prints `Usage: RUN /bin/name.com [args...]`; does not enter BASIC. | `no_basic_shell_smoke.py`, `adversarial_shell_smoke.py` |
 | Workspace root delete | `RM /`, `RM -R /` | `Bad path`; workspace root is not removed. | `adversarial_shell_smoke.py` |
 | Non-empty directory delete | `RMDIR moved-dir` with child file present | `RMDIR failed`; child data remains. | `workspace_shell_smoke.py` |
 | Directory without recursive flag | `RM moved-dir` | `Is directory`. | Covered by command contract; add direct smoke if changed. |
@@ -35,6 +41,8 @@ current executable subset.
 | Overlong line | 1400-character command | `UNKNOWN COMMAND`; prompt returns. | `adversarial_shell_smoke.py` |
 | Binary-ish input | Null/escape/invalid byte sequence | Prompt returns; shell remains responsive. | `adversarial_shell_smoke.py` |
 | RENEW abort | `RENEW`, `N` | `CANCELLED`; shell remains responsive. | `adversarial_shell_smoke.py` |
+| Transfer overwrite guard | `RECV /basic/demo.bas` when file exists | Returns `Exists`; overwrite requires `RECV -F`. | `ymodem_transfer_smoke.py` |
+| Transfer path escape | `RECV ../../BAD` or `SEND ../../BAD` | `Bad path`; no file outside workspace is touched. | `ymodem_transfer_smoke.py` |
 
 ## Parent Firmware `/bin` Service Cases
 
@@ -75,7 +83,9 @@ python3 -m py_compile \
   tools/no_basic_shell_smoke.py \
   tools/renew_full_smoke.py \
   tools/adversarial_shell_smoke.py \
-  tools/bin_hardware_gpio_smoke.py
+  tools/bin_hardware_gpio_smoke.py \
+  tools/ymodem_transfer_smoke.py \
+  tools/c3com_fixture_smoke.py
 
 tools/idf53.sh -B build-c3-root build
 
@@ -83,5 +93,7 @@ python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
 python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0
 python3 tools/renew_full_smoke.py --port /dev/ttyACM0
 python3 tools/adversarial_shell_smoke.py --port /dev/ttyACM0
+python3 tools/ymodem_transfer_smoke.py --port /dev/ttyACM0
+python3 tools/c3com_fixture_smoke.py --smoke --port /dev/ttyACM0
 python3 tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 10
 ```

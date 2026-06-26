@@ -3,6 +3,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
+#include "ff.h"
 #include "wear_levelling.h"
 
 #include <ctype.h>
@@ -269,6 +270,42 @@ esp_err_t storage_renew_workspace(void)
 bool storage_workspace_ready(void)
 {
     return s_workspace_ready;
+}
+
+bool storage_workspace_usage_bytes(size_t *total_bytes, size_t *used_bytes, size_t *free_bytes)
+{
+    DWORD free_clusters = 0;
+    FATFS *fs = NULL;
+    if (!s_workspace_ready || f_getfree(STORAGE_WORKSPACE_MOUNT_POINT, &free_clusters, &fs) != FR_OK || !fs) {
+        return false;
+    }
+
+    size_t sector_size =
+#if FF_MAX_SS != FF_MIN_SS
+        fs->ssize;
+#else
+        FF_MIN_SS;
+#endif
+    size_t cluster_bytes = (size_t)fs->csize * sector_size;
+    size_t total_clusters = fs->n_fatent >= 2 ? (size_t)(fs->n_fatent - 2) : 0;
+    size_t total = total_clusters * cluster_bytes;
+    size_t free_space = (size_t)free_clusters * cluster_bytes;
+    size_t used = total >= free_space ? total - free_space : 0;
+    if (total_bytes) {
+        *total_bytes = total;
+    }
+    if (used_bytes) {
+        *used_bytes = used;
+    }
+    if (free_bytes) {
+        *free_bytes = free_space;
+    }
+    return true;
+}
+
+bool storage_workspace_free_bytes(size_t *free_bytes)
+{
+    return free_bytes && storage_workspace_usage_bytes(NULL, NULL, free_bytes);
 }
 
 bool storage_resolve_path(const char *input, char *out, size_t out_size)

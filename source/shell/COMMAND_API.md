@@ -68,6 +68,19 @@ If `read_line` is set and interactive commands are allowed, the shell can ask
 for confirmation. Program callers normally leave `read_line` as `NULL` and keep
 interactive/destructive flags disabled.
 
+`DF` reports workspace capacity using Unix-style 1K-block columns. `RECV` and
+`SEND` are interactive terminal transfer commands. They use the input port's raw
+byte API and are rejected unless interactive execution is allowed. Program
+callers should use storage or higher-level services instead of invoking YMODEM
+transfer through the command API.
+
+`RUN /bin/name.com [args...]` loads only C3COM-format executables. It passes
+whitespace-separated argv plus stdin/stdout/stderr callbacks to the executable
+through `source/shell/c3_com.h`. On ESP32-C3, this requires executable heap
+availability; the project disables ESP-IDF memory protection for native C3COM
+execution. First-slice C3COM images must be position-independent because the
+loader validates and copies a flat code blob but does not apply relocations.
+
 ## Flags
 
 ```c
@@ -160,6 +173,7 @@ All current shell commands are available:
 
 ```text
 HELP
+DF
 PWD
 LS [path]
 CD <path>
@@ -171,6 +185,9 @@ RM <file>
 RM -R <path>
 CP <src> <dst>
 MV <src> <dst>
+RECV [-F] <path>
+SEND <path>
+RUN /bin/name.com [args...]
 RENEW
 ```
 

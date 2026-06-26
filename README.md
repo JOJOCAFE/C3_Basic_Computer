@@ -22,8 +22,9 @@ Current implementation context:
 - Hardware service package is complete for GPIO/ADC/I2C/SPI C APIs. The root
   firmware exposes terminal hardware clients through `/bin/hardware`; BASIC now
   has a typed GPIO/ADC adapter over `source/hardware` for the first slice.
-- Native RISC-V assembly capture is the next candidate milestone. Native
-  execution remains blocked until a later guarded runtime sprint.
+- Shell YMODEM transfer and guarded C3COM execution are board-tested. Native
+  uploaded `.com` programs can run only through explicit `RUN /bin/name.com`
+  after C3COM header and CRC validation.
 - BLE HID keyboard support has a compiled input boundary, but real keyboard
   pairing remains pending until a keyboard is available.
 
@@ -75,6 +76,8 @@ python3 tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 1
 python3 tools/bin_hardware_adc_smoke.py --port /dev/ttyACM0 --pin 0
 python3 tools/bin_hardware_i2c_smoke.py --port /dev/ttyACM0 --sda 6 --scl 7
 python3 tools/bin_hardware_spi_smoke.py --port /dev/ttyACM0 --mosi 4 --miso 5 --sclk 6 --cs 7
+python3 tools/ymodem_transfer_smoke.py --port /dev/ttyACM0
+python3 tools/c3com_fixture_smoke.py --smoke --port /dev/ttyACM0
 ```
 
 ## Board-checked shell commands
@@ -96,6 +99,10 @@ in firmware and have been checked on the ESP32-C3 board over `/dev/ttyACM0`.
 | `RM -R <path>` | Works | Recursively removes a workspace file or directory subtree. |
 | `CP <src> <dst>` | Works | Copies files inside `/workspace`. |
 | `MV <src> <dst>` | Works | Moves or renames files and directories inside `/workspace`. |
+| `DF` | Works | Shows workspace total, used, and available 1K blocks. |
+| `RECV [-F] <path>` | Works | Receives one YMODEM file into the exact workspace path, with overwrite guard and free-space preflight. |
+| `SEND <path>` | Works | Sends one workspace file by YMODEM with exact size and bytes. |
+| `RUN /bin/name.com [args...]` | Works | Runs guarded C3COM programs with argv, standard I/O callbacks, CRC validation, and `EXIT n` reporting. |
 | `RENEW` | Works | Requires two confirmations, formats only `workspace_fs`, and rebuilds the workspace layout. |
 
 Checked with:
@@ -105,11 +112,14 @@ python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
 python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0
 python3 tools/renew_full_smoke.py --port /dev/ttyACM0
 python3 tools/adversarial_shell_smoke.py --port /dev/ttyACM0
+python3 tools/ymodem_transfer_smoke.py --port /dev/ttyACM0
+python3 tools/c3com_fixture_smoke.py --smoke --port /dev/ttyACM0
 ```
 
 Not exposed by the boot shell: `DIR`, `COPY`, `MOVE`, `RENAME`, `DELETE`,
-`LOAD`, `SAVE`, `NEW`, `LIST`, `RUN`, and direct BASIC statements such as
-`PRINT`.
+`LOAD`, `SAVE`, `NEW`, `LIST`, and direct BASIC statements such as `PRINT`.
+Bare `RUN` is a guarded C3COM command and prints usage; it does not enter BASIC
+immediate mode.
 
 Later workspace/system/monitor targets:
 `ASM`, `VERSION`, `MEMORY`, `DATE`, `TIME`, `DIAGNOSTICS`, `REG`, `MEM`,
@@ -273,13 +283,25 @@ Completed and board-checked:
    - `/bin list`, `/bin/nano`, `/bin/hardware`, and a first RAM-backed pipe path
      are implemented.
 
+7. **Shell YMODEM transfer and guarded C3COM execution**
+   - `DF`, `RECV`, and `SEND` move `.bas`, `.asm`, `.com`, config, and test
+     files over the terminal without reflashing.
+   - `RUN /bin/name.com [args...]` validates C3COM headers and CRC before
+     copying code to executable RAM and jumping.
+   - Native C3COM execution requires ESP-IDF memory protection disabled on
+     ESP32-C3 so executable heap is available.
+   - First-slice `.com` programs must be position-independent flat code because
+     there is no relocation loader yet.
+
 Recommended next implementation:
 
-1. Add ASM nano mode: `ASM /asm/name.asm` should edit and validate text only.
-2. Resume ASM capture as a non-execution milestone.
-3. Keep native execution blocked until assembler validation and runtime
-   guardrails exist.
-4. Add system/monitor commands only after their behavior is documented and
+1. Start Sprint 009: [`docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`](docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md).
+2. Add ASM nano mode: `ASM /asm/name.asm` should edit and validate text only.
+3. Resume ASM capture as a non-execution milestone after ASM editor mode is
+   stable and board-tested.
+4. Add a future C3COM relocation/toolchain slice if normal C output should use
+   `.rodata` and relocations.
+5. Add system/monitor commands only after their behavior is documented and
    testable.
 
 ## UX and behavior goals

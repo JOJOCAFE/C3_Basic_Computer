@@ -20,6 +20,7 @@ typedef enum {
 
 typedef enum {
     SHELL_COMMAND_HELP = 0,
+    SHELL_COMMAND_DF,
     SHELL_COMMAND_PWD,
     SHELL_COMMAND_LS,
     SHELL_COMMAND_CD,
@@ -30,6 +31,9 @@ typedef enum {
     SHELL_COMMAND_RM,
     SHELL_COMMAND_CP,
     SHELL_COMMAND_MV,
+    SHELL_COMMAND_RECV,
+    SHELL_COMMAND_SEND,
+    SHELL_COMMAND_RUN,
     SHELL_COMMAND_RENEW,
 } shell_command_t;
 
