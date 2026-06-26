@@ -203,7 +203,7 @@ Line text must fit within the 64 KiB source buffer
 - [x] Keep source text owned by the editor/runtime context for the duration of
   run/debug.
 - [x] Preserve current `basic_load_file()` behavior.
-- [ ] Return structured validation errors:
+- [x] Return structured validation errors:
   - source line number
   - token/line text excerpt
   - reason
@@ -340,14 +340,22 @@ Line text must fit within the 64 KiB source buffer
 - `tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 10`
   passed.
 
-## Open Decisions Before Coding
+Structured BASIC validation update:
 
-1. Add structured BASIC validation errors with source line number, excerpt, and
-   reason instead of the current short error.
-2. Decide whether `LS` needs a stack-safe BASIC adapter, or whether `CAT`/typed
-   service calls are enough for the tiny core.
-3. Decide whether hardware reads should grow into typed BASIC statements after
-   the string bridge has more test coverage.
+- `basic_load_buffer_checked()` returns `basic_error_t` with source line,
+  excerpt, and reason.
+- Nano BASIC validation, `:run`, and `:debug` use the same checked loader.
+- Invalid source now reports messages such as
+  `BASIC validation failed line 1: malformed line number: 123ABC`.
+
+## Decisions After Tiny Slice
+
+1. Keep BASIC `LS` deferred. The tiny core keeps `PWD` and `CAT`; directory
+   listing can come later through a stack-safe adapter if real programs need it.
+2. Keep hardware access as the checked string bridge for now:
+   `HARDWARE "gpio read -p <pin>"` and `HARDWARE "adc read -p <pin>"`.
+   Typed BASIC hardware statements are deferred until this bridge has more
+   coverage and a clearer user-facing shape.
 
 ## Non-Goals
 

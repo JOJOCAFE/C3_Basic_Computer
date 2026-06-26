@@ -418,62 +418,41 @@ static const char *editor_mode_name(editor_mode_t mode)
     }
 }
 
+static void write_basic_error(const shell_exec_io_t *io, const char *prefix,
+                              const basic_error_t *error)
+{
+    char msg[192];
+    if (error && error->source_line > 0) {
+        snprintf(msg, sizeof(msg), "%s line %u: %s: %s\r\n",
+                 prefix ? prefix : "BASIC error",
+                 (unsigned)error->source_line,
+                 error->reason[0] ? error->reason : "invalid BASIC source",
+                 error->excerpt[0] ? error->excerpt : "(blank)");
+    } else {
+        snprintf(msg, sizeof(msg), "%s\r\n", prefix ? prefix : "BASIC error");
+    }
+    editor_write(io, msg);
+}
+
 static bool validate_basic_buffer(const shell_exec_io_t *io, const editor_buffer_t *buffer)
 {
-    size_t source_line = 1;
-    const char *cursor = buffer ? buffer->text : NULL;
+    basic_program_t scratch;
+    basic_error_t error;
+    basic_init(&scratch);
+    esp_err_t err = basic_load_buffer_checked(buffer ? buffer->text : "", buffer ? buffer->len : 0,
+                                              &scratch, &error);
+    basic_clear(&scratch);
 
-    while (cursor && *cursor) {
-        const char *line = cursor;
-        const char *end = strpbrk(line, "\r\n");
-        const char *p = line;
-        bool has_digits = false;
-        long number = 0;
-
-        while (end && end > line && (end[-1] == '\r' || end[-1] == '\n')) {
-            end--;
-        }
-
-        while (p < (end ? end : line + strlen(line)) && isspace((unsigned char)*p)) {
-            p++;
-        }
-
-        const char *limit = end ? end : line + strlen(line);
-        if (p < limit) {
-            while (p < limit && isdigit((unsigned char)*p)) {
-                has_digits = true;
-                number = (number * 10) + (*p - '0');
-                p++;
-            }
-
-            if (!has_digits || number <= 0) {
-                char msg[96];
-                snprintf(msg, sizeof(msg), "BASIC validation failed line %u: missing line number\r\n",
-                         (unsigned)source_line);
-                editor_write(io, msg);
-                return false;
-            }
-
-            if (p < limit && !isspace((unsigned char)*p)) {
-                char msg[112];
-                snprintf(msg, sizeof(msg), "BASIC validation failed line %u: malformed line number\r\n",
-                         (unsigned)source_line);
-                editor_write(io, msg);
-                return false;
-            }
-        }
-
-        if (!end) {
-            break;
-        }
-        cursor = end;
-        while (*cursor == '\r' || *cursor == '\n') {
-            cursor++;
-        }
-        source_line++;
+    if (err == ESP_OK) {
+        return true;
+    }
+    if (err == ESP_ERR_NO_MEM) {
+        editor_write(io, "Out of memory\r\n");
+        return false;
     }
 
-    return true;
+    write_basic_error(io, "BASIC validation failed", &error);
+    return false;
 }
 
 static editor_status_t validate_before_save(const shell_exec_io_t *io, const editor_request_t *request,
@@ -501,15 +480,16 @@ static editor_status_t run_basic_buffer(const shell_exec_io_t *io, const editor_
     editor_write(io, "SAVED\r\n");
 
     basic_program_t program;
+    basic_error_t error;
     basic_init(&program);
-    esp_err_t err = basic_load_buffer(buffer->text, buffer->len, &program);
+    esp_err_t err = basic_load_buffer_checked(buffer->text, buffer->len, &program, &error);
     if (err == ESP_ERR_NO_MEM) {
         editor_write(io, "Out of memory\r\n");
         basic_clear(&program);
         return EDITOR_STATUS_OUT_OF_MEMORY;
     }
     if (err != ESP_OK) {
-        editor_write(io, "BASIC load failed\r\n");
+        write_basic_error(io, "BASIC load failed", &error);
         basic_clear(&program);
         return EDITOR_STATUS_SAVE_FAILED;
     }
@@ -549,15 +529,16 @@ static editor_status_t debug_basic_buffer(const shell_exec_io_t *io, const edito
     editor_write(io, "SAVED\r\n");
 
     basic_program_t program;
+    basic_error_t error;
     basic_init(&program);
-    esp_err_t err = basic_load_buffer(buffer->text, buffer->len, &program);
+    esp_err_t err = basic_load_buffer_checked(buffer->text, buffer->len, &program, &error);
     if (err == ESP_ERR_NO_MEM) {
         editor_write(io, "Out of memory\r\n");
         basic_clear(&program);
         return EDITOR_STATUS_OUT_OF_MEMORY;
     }
     if (err != ESP_OK) {
-        editor_write(io, "BASIC load failed\r\n");
+        write_basic_error(io, "BASIC load failed", &error);
         basic_clear(&program);
         return EDITOR_STATUS_SAVE_FAILED;
     }

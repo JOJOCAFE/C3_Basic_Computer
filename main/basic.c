@@ -399,15 +399,70 @@ void basic_list(const basic_program_t *program, basic_write_fn write, void *ctx)
     }
 }
 
-esp_err_t basic_load_buffer(const char *text, size_t len, basic_program_t *program)
+static void basic_clear_error(basic_error_t *error)
+{
+    if (!error) {
+        return;
+    }
+    memset(error, 0, sizeof(*error));
+}
+
+static void basic_set_error(basic_error_t *error, size_t source_line, const char *line,
+                            const char *reason)
+{
+    if (!error) {
+        return;
+    }
+
+    error->source_line = source_line;
+    snprintf(error->reason, sizeof(error->reason), "%s", reason ? reason : "invalid BASIC source");
+
+    const char *excerpt = skip_ws(line ? line : "");
+    size_t len = strlen(excerpt);
+    if (len >= sizeof(error->excerpt)) {
+        len = sizeof(error->excerpt) - 1;
+    }
+    memcpy(error->excerpt, excerpt, len);
+    error->excerpt[len] = '\0';
+}
+
+static bool basic_line_number_valid(const char *line, const char **body, const char **reason)
+{
+    const char *p = skip_ws(line);
+    int number = 0;
+
+    if (!parse_int(&p, &number) || number <= 0) {
+        if (reason) {
+            *reason = "missing line number";
+        }
+        return false;
+    }
+
+    if (*p != '\0' && !isspace((unsigned char)*p)) {
+        if (reason) {
+            *reason = "malformed line number";
+        }
+        return false;
+    }
+
+    if (body) {
+        *body = skip_ws(p);
+    }
+    return true;
+}
+
+esp_err_t basic_load_buffer_checked(const char *text, size_t len, basic_program_t *program,
+                                    basic_error_t *error)
 {
     if (!text || !program) {
         return ESP_ERR_INVALID_ARG;
     }
 
+    basic_clear_error(error);
     basic_clear(program);
 
     size_t offset = 0;
+    size_t source_line = 1;
     while (offset < len) {
         size_t start = offset;
         while (offset < len && text[offset] != '\r' && text[offset] != '\n') {
@@ -423,10 +478,20 @@ esp_err_t basic_load_buffer(const char *text, size_t len, basic_program_t *progr
         memcpy(line, text + start, line_len);
         line[line_len] = '\0';
 
-        if (*skip_ws(line) != '\0' && !basic_store_line(program, line)) {
-            free(line);
-            basic_clear(program);
-            return ESP_FAIL;
+        if (*skip_ws(line) != '\0') {
+            const char *reason = NULL;
+            if (!basic_line_number_valid(line, NULL, &reason)) {
+                basic_set_error(error, source_line, line, reason);
+                free(line);
+                basic_clear(program);
+                return ESP_FAIL;
+            }
+            if (!basic_store_line(program, line)) {
+                basic_set_error(error, source_line, line, "out of memory while storing line");
+                free(line);
+                basic_clear(program);
+                return ESP_ERR_NO_MEM;
+            }
         }
         free(line);
 
@@ -436,9 +501,15 @@ esp_err_t basic_load_buffer(const char *text, size_t len, basic_program_t *progr
         if (offset < len && text[offset] == '\n') {
             offset++;
         }
+        source_line++;
     }
 
     return ESP_OK;
+}
+
+esp_err_t basic_load_buffer(const char *text, size_t len, basic_program_t *program)
+{
+    return basic_load_buffer_checked(text, len, program, NULL);
 }
 
 esp_err_t basic_load_file(const char *path, basic_program_t *program)

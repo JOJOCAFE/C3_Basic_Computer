@@ -206,6 +206,7 @@ def main(argv: list[str]) -> int:
         result = session.edit("BASIC", bad_path, ["123ABC", ":w", ":p", ":q!"], args.timeout)
         print_block("BASIC invalid save", result.raw)
         require("BASIC validation failed line 1" in result.raw, "invalid BASIC line was not rejected")
+        require("malformed line number" in result.raw, "invalid BASIC error missing reason")
         require("123ABC" in result.raw, "invalid BASIC buffer was not preserved after rejection")
         require(result.raw.endswith("> "), "invalid BASIC test did not return to shell")
 
