@@ -1,9 +1,10 @@
 # Phase 1 Fix List (from Compliance Matrix)
 
-Status: Historical recovery-first fix list. It references `Old_version/`
-because it predates the root project move. Current active implementation lives
-at the repository root, with shell code in `source/shell`, hardware services in
-`source/hardware`, and `/bin` adapters in `source/bin`.
+Status: Historical recovery-first fix list. Original references have been
+migrated to the current root/source layout because this record predates the root
+project move. Current active implementation lives at the repository root, with
+shell code in `source/shell`, hardware services in `source/hardware`, and `/bin`
+adapters in `source/bin`.
 
 Goal: remove high-risk behavior before assembly work, starting with recoverability.
 
@@ -16,7 +17,7 @@ Keep Sprint 1 recovery-first:
 
 ## 0) Recovery-first foundation (must run first)
 
-- Files: `Old_version/partitions.csv`, `Old_version/sdkconfig.defaults`, `Old_version/sdkconfig`
+- Files: `partitions.csv`, `sdkconfig.defaults`, `sdkconfig`
 - Split data persistence into two LittleFS partitions:
   - `system_fs` for protected system payloads
   - `workspace_fs` for user editable files
@@ -27,7 +28,7 @@ Keep Sprint 1 recovery-first:
 
 ## 1) Storage mount split and partition boundaries
 
-- Files: `Old_version/main/storage.h`, `Old_version/main/storage.c`
+- Files: `main/storage.h`, `main/storage.c`
 - Add two VFS mount points and labels:
   - system mount (read-mostly, protected)
   - workspace mount (full user operations)
@@ -37,7 +38,7 @@ Keep Sprint 1 recovery-first:
 
 ## 2) Workspace partition recovery (`renew`)
 
-- Files: `Old_version/main/storage.c`, `Old_version/main/shell.c`
+- Files: `main/storage.c`, `source/shell/shell.c`
 - Implement `RENEW` as:
   - wipe/reformat workspace partition only
   - leave system partition and app runtime untouched
@@ -47,7 +48,7 @@ Keep Sprint 1 recovery-first:
 
 3) Core shell command handlers
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Add/finish `help`, `pwd`, `ls`, `cat`, `rm`, `mkdir`, `rmdir`, `cd`.
 - Acceptance:
   - command behavior is deterministic and predictable.
@@ -55,7 +56,7 @@ Keep Sprint 1 recovery-first:
 
 ## 4) Error contract cleanup
 
-- Files: `Old_version/main/shell.c`, `Old_version/main/basic.c`
+- Files: `source/shell/shell.c`, `main/basic.c`
 - Normalize recoverability-first messaging:
   - show what failed and where
   - avoid ambiguous `BASIC ERROR` without context
@@ -64,7 +65,7 @@ Keep Sprint 1 recovery-first:
 
 ## 5) Canonical path/layout policy
 
-- Files: `Old_version/main/storage.c`, `Old_version/main/shell.c`
+- Files: `main/storage.c`, `source/shell/shell.c`
 - Enforce `/basic`, `/asm`, `/bin`, `/config`, `/data`, `/temp` in workspace.
 - Keep compatibility with legacy uppercase locations temporarily if present.
 - Acceptance:
@@ -72,7 +73,7 @@ Keep Sprint 1 recovery-first:
 
 ## 6) Listing and path consistency
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Ensure `ls`/`dir` and path resolution have consistent outputs and error shape.
 - Acceptance:
   - root and subfolder listing stable across commands.
@@ -80,7 +81,7 @@ Keep Sprint 1 recovery-first:
 
 ## 7) System command baseline
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Implement `version`, `memory`, `date`, `time`, `diagnostics`, plus explicit update placeholder.
 - Acceptance:
   - all are discoverable via `help <command>`.
@@ -88,7 +89,7 @@ Keep Sprint 1 recovery-first:
 
 ## 8) Monitor scaffolding
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Add monitor command placeholders for `reg`, `mem`, `dump`, `disasm`, `step`, `break` with safe responses.
 - Acceptance:
   - no crashes, no undefined behavior.

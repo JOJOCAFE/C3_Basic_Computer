@@ -1,7 +1,7 @@
 # Sprint 1: Recovery-first Ticket List (Fine-grained Review Units)
 
-Status: Historical planning record. `Old_version/` is no longer the active
-implementation target. Current firmware lives at the repository root, reusable
+Status: Historical planning record. The former legacy tree has been removed.
+Current firmware lives at the repository root, reusable
 shell code lives in `source/shell`, hardware services live in
 `source/hardware`, and `/bin` service adapters live in `source/bin`.
 
@@ -9,7 +9,7 @@ Use this as the execution queue and review ledger. Keep each ticket small and ve
 
 Status terms:
 
-- `DONE (code-reviewed)`: historical implementation was present in `Old_version/` and checked against the ticket acceptance text at the time of the Sprint 1 review.
+- `DONE (code-reviewed)`: implementation was checked against the ticket acceptance text at the time of the Sprint 1 review.
 - `PARTIAL`: implementation is present but one acceptance detail still needs cleanup or proof.
 - `TODO`: not implemented.
 
@@ -19,7 +19,7 @@ Status terms:
 
 Status: DONE (code-reviewed)
 
-- File: `Old_version/partitions.csv`
+- File: `partitions.csv`
 - Action:
   1. Replace single `storage` partition with `system_fs` and `workspace_fs`.
   2. Confirm no overlap with `nvs`, `otadata`, `app0`.
@@ -28,15 +28,15 @@ Status: DONE (code-reviewed)
   - Sizes and offsets are non-overlapping.
   - `storage` label is not present.
 - Evidence:
-  - `Old_version/partitions.csv` defines `system_fs` at `0x150000` size `0x100000`.
-  - `Old_version/partitions.csv` defines `workspace_fs` at `0x250000` size `0x1B0000`.
+  - `partitions.csv` defines `system_fs` at `0x150000` size `0x100000`.
+  - `partitions.csv` defines `workspace_fs` at `0x250000` size `0x1B0000`.
   - No `storage` partition label remains.
 
 ### R1-T2 — Storage constants and API contract
 
 Status: DONE (code-reviewed)
 
-- File: `Old_version/main/storage.h`
+- File: `main/storage.h`
 - Action:
   1. Define mount points and partition labels.
   2. Add API for workspace renewal.
@@ -45,14 +45,14 @@ Status: DONE (code-reviewed)
   - `STORAGE_WORKSPACE_MOUNT_POINT` is declared.
   - `storage_renew_workspace()` is declared.
 - Evidence:
-  - `Old_version/main/storage.h` declares `/system`, `/workspace`, `system_fs`, and `workspace_fs`.
-  - `Old_version/main/storage.h` declares `storage_renew_workspace()`.
+  - `main/storage.h` declares `/system`, `/workspace`, `system_fs`, and `workspace_fs`.
+  - `main/storage.h` declares `storage_renew_workspace()`.
 
 ### R1-T3 — Add dual filesystem mount logic
 
 Status: DONE (code-reviewed)
 
-- File: `Old_version/main/storage.c`
+- File: `main/storage.c`
 - Action:
   1. Add mount helper for system partition (read-mostly).
   2. Add mount helper for workspace partition (read/write, recoverable).
@@ -61,7 +61,7 @@ Status: DONE (code-reviewed)
   - Storage init tries both mounts.
   - Logs show whether each mount succeeded.
 - Evidence:
-  - `Old_version/main/storage.c` has separate `storage_mount_system()` and `storage_mount_workspace()` helpers.
+  - `main/storage.c` has separate `storage_mount_system()` and `storage_mount_workspace()` helpers.
   - `storage_init()` attempts system mount first, then workspace mount.
   - System mount failure is logged as warning; workspace mount failure is logged as error and stops init.
 
@@ -69,7 +69,7 @@ Status: DONE (code-reviewed)
 
 Status: DONE (code-reviewed)
 
-- File: `Old_version/main/storage.c`
+- File: `main/storage.c`
 - Action:
   1. Add directory create list: `basic`, `asm`, `bin`, `config`, `data`, `temp`.
   2. Keep compatibility alias strategy for legacy uppercase locations if needed.
@@ -77,7 +77,7 @@ Status: DONE (code-reviewed)
   - All six canonical directories exist after boot.
   - Existing directory creation failures are handled safely.
 - Evidence:
-  - `Old_version/main/storage.c` creates canonical `basic`, `asm`, `bin`, `config`, `data`, and `temp`.
+  - `main/storage.c` creates canonical `basic`, `asm`, `bin`, `config`, `data`, and `temp`.
   - Compatibility aliases `BASIC`, `ASM`, `CONFIG`, and `TEMP` are also created.
   - Existing directories return `ESP_OK`; conflicting non-directories fail safely.
 
@@ -85,7 +85,7 @@ Status: DONE (code-reviewed)
 
 Status: DONE (code-reviewed)
 
-- File: `Old_version/main/storage.c`
+- File: `main/storage.c`
 - Action:
   1. Route unqualified names to `/workspace/basic/<name>.bas`.
   2. Keep absolute path handling under workspace mount.
@@ -103,7 +103,7 @@ Status: DONE (code-reviewed)
 
 Status: DONE (code-reviewed)
 
-- File: `Old_version/main/storage.c`
+- File: `main/storage.c`
 - Action:
   1. Implement `storage_renew_workspace()`.
   2. Unmount workspace only.
@@ -121,7 +121,7 @@ Status: DONE (code-reviewed)
 
 Status: DONE (code-reviewed)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Action:
   1. Add `RENEW` command parsing.
   2. Add first destructive-warning prompt.
@@ -139,7 +139,7 @@ Status: DONE (code-reviewed)
 
 Status: DONE (code-reviewed)
 
-- File: `Old_version/main/shell.c`
+- File: `source/shell/shell.c`
 - Action:
   1. Keep non-crashing error path for bad filenames and bad paths.
   2. Surface explicit renewal failure messages.
@@ -157,7 +157,7 @@ Status: DONE (code-reviewed)
 
 Status: DONE (code-reviewed)
 
-- File: `Old_version/main/storage.c`
+- File: `main/storage.c`
 - Action:
   1. Add explicit log lines for mount/format/remount outcomes.
   2. Distinguish system mount and workspace mount status in logs.
@@ -173,7 +173,7 @@ Status: DONE (code-reviewed)
 Status: DONE (code-reviewed)
 
 - Files:
-  - `Old_version/README.md`
+  - `README.md`
   - `README.md`
   - `docs/05_File_System.md`
   - `docs/COMPLIANCE_MATRIX.md`
@@ -185,8 +185,8 @@ Status: DONE (code-reviewed)
   - Docs and code command surface match.
   - Recovery-first behavior is explicitly named in user-facing docs.
 - Evidence:
-  - `Old_version/main/shell.c` includes `RENEW` in `HELP`.
-  - `Old_version/README.md` lists `RENEW`.
+  - `source/shell/shell.c` includes `RENEW` in `HELP`.
+  - `README.md` lists `RENEW`.
   - `README.md` documents `system_fs`, `workspace_fs`, and workspace-only renew behavior.
   - `docs/05_File_System.md` documents `system_fs`, `workspace_fs`, and `RENEW`.
   - `docs/COMPLIANCE_MATRIX.md` records recoverability and partition-split status.

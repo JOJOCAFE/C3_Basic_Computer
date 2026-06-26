@@ -1,8 +1,8 @@
 # Sprint 1 Detailed Design: Recovery-first, Dual-partition Workspace Architecture
 
 Status: Historical design record. The recovery-first architecture remains
-valid, but `Old_version/` is not the active build target. Current implementation
-work should happen at the repository root and under `source/`.
+valid. Current implementation work should happen at the repository root and
+under `source/`.
 
 ## Purpose
 
