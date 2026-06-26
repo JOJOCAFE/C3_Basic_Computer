@@ -11,6 +11,8 @@ Use it as the execution plan so milestones remain auditable.
 - [x] `main/basic.c` supports Phase 1 BASIC statements/functions.
 - [x] `source/hardware` provides reusable GPIO, ADC, I2C, and SPI C service APIs.
 - [x] `source/bin` exposes `/bin/hardware` terminal adapters for GPIO, ADC, I2C, and SPI.
+- [x] `source/bin` has a `/bin` service registry with `/bin list`, `/bin/hardware`, and `/bin/nano`.
+- [x] `source/editor` provides the first line-oriented `.txt` editor core for `EDIT`.
 - [x] `README.md`, `source/shell/README.md`, and `source/shell/TEST_CASES.md` match current shell scope.
 
 ## 1. Move Implementation Surface to a Stable Workspace

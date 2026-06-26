@@ -51,7 +51,6 @@ Current implementation context:
 - `tools/` — current build scripts and serial smoke tests
 - `hardware/` — board-level hardware notes/design artifacts
 - `assets/`, `examples/`, `test/` — project assets, samples, and checks
-- `Old_version/` — legacy/reference history only; not the active build target
 - `.codex/PROJECT_SKILL.md` — project skill contract (Manifesto + Design Principles)
 
 ## Build and flash
@@ -113,6 +112,11 @@ Not exposed by the boot shell: `DIR`, `COPY`, `MOVE`, `RENAME`, `DELETE`,
 Later workspace/system/monitor targets:
 `EDIT`, `BASIC`, `ASM`, `VERSION`, `MEMORY`, `DATE`, `TIME`, `DIAGNOSTICS`,
 `REG`, `MEM`, `DUMP`, `DISASM`, `STEP`, `BREAK`
+
+`EDIT <path>` is the text editor command backed by `/bin/nano`.
+Future `BASIC <path>` and `ASM <path>` commands should dispatch to the same
+editor service with the BASIC or ASM plugin selected.
+Linked services can be listed with `/bin list`.
 
 Only implemented commands should appear in firmware `HELP`.
 
@@ -176,12 +180,25 @@ Sprint 002 shell-first work is complete. Resume in the order below.
    - Shell input is behind an input service.
    - BLE HID keyboard backend boundary exists; real pairing waits for a keyboard.
 
-3. **Next candidate – ASM capture boundary**
+3. **In progress - nano text editor service**
+   - Lean nano-style `/bin/nano` editor service with `EDIT <path>` as the shell
+     command, documented in
+   [`docs/SPRINT_004_NANO_EDITOR_SERVICE.md`](docs/SPRINT_004_NANO_EDITOR_SERVICE.md).
+   - First implementation target is `/data/*.txt` only.
+   - Later, `BASIC <path>` and `ASM <path>` should call nano with removable
+     language plugins/services so the boot shell stays small.
+
+4. **Next candidate - `/bin` service ABI and pipes**
+   - Current `/bin` services use a registry and build-time selection.
+   - Stream ABI and `|` pipes are planned in
+     [`docs/SPRINT_005_BIN_SERVICE_ABI_AND_PIPES.md`](docs/SPRINT_005_BIN_SERVICE_ABI_AND_PIPES.md).
+
+5. **Later - ASM capture boundary**
    - Parse and capture `ASM`/`ENDASM` blocks from BASIC safely.
    - Keep assembly source separate from BASIC source storage.
    - Validate assembler input before any execution work.
 
-4. **Later – Runtime, monitor, and capability expansion**
+6. **Later - Runtime, monitor, and capability expansion**
    - Add `CALLASM()`, standalone `.asm` execution, and monitor commands only after
      capture/validation passes.
    - Add graphics, sound, BASIC GPIO/motion, then standalone UX hardware

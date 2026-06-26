@@ -145,7 +145,7 @@ MV
 
 BASIC is not exposed directly from the boot shell.
 
-Deferred workspace commands:
+Planned workspace editor commands:
 
 ```text
 EDIT
@@ -169,8 +169,10 @@ Examples
 > RMDIR temp/empty
 ```
 
-ASM capture is the next candidate milestone. Native execution remains blocked
-until a later guarded runtime sprint.
+`EDIT <path>` is the shell command for the text editor. Later,
+`BASIC <path>` and `ASM <path>` should call the same nano editor service with
+the BASIC or ASM plugin selected. Native ASM execution remains blocked until a
+later guarded runtime sprint.
 
 ---
 
@@ -197,6 +199,7 @@ services are not shell built-ins and do not appear in `HELP`.
 Current `/bin/hardware` service:
 
 ```text
+/bin list
 /bin/hardware gpio in -p <gpio> [--pull none|up|down|updown]
 /bin/hardware gpio out -p <gpio> [-v 0|1] [--open-drain]
 /bin/hardware gpio read -p <gpio>
@@ -208,11 +211,58 @@ Current `/bin/hardware` service:
 /bin/hardware i2c scan
 /bin/hardware spi config -mosi <gpio> -miso <gpio> -sclk <gpio> [-cs <gpio>] [-f <hz>] [-m <mode>]
 /bin/hardware spi xfer -tx <hexbytes>
+HARDWARE gpio read -p <gpio>
 ```
 
 The hardware implementation lives in `source/hardware` and the text command
 adapter lives in `source/bin`. The standalone `source/shell` project does not
 link either package.
+
+Current `/bin/nano` editor service:
+
+```text
+/bin/nano <path>
+EDIT <path>
+```
+
+`/bin/nano` is a small nano-style text editor service. `EDIT <path>` is the
+shell command that launches it. The first implementation edits `/data/*.txt`
+files only. BASIC and ASM behavior should attach later through removable editor
+plugins/services. `BASIC <path>` and `ASM <path>` are planned shell front ends
+to nano plugin modes, not shell built-ins for language runtime behavior.
+
+Current editor limits:
+
+- Text buffer: 16 KiB per open file, including line separators.
+- Input line buffer: 16 KiB, bounded by the same editor buffer capacity.
+- If editor allocation fails, it prints `Out of memory` and returns to the
+  shell instead of entering a partial editor state.
+- Files larger than the editor buffer are rejected with `File too large`.
+- If appending text would exceed the editor buffer, it prints `Buffer full` and
+  returns to the shell.
+
+The first editor command set should stay small:
+
+```text
+Text line  Append text
+:w         Save
+:q         Quit if clean
+:q!        Quit without saving
+:wq        Save and quit
+:p         Print buffer
+:clear     Clear buffer
+:help      Help
+```
+
+Detailed planning lives in
+[`docs/SPRINT_004_NANO_EDITOR_SERVICE.md`](SPRINT_004_NANO_EDITOR_SERVICE.md).
+The `/bin` service registry and future pipe ABI are tracked in
+[`docs/SPRINT_005_BIN_SERVICE_ABI_AND_PIPES.md`](SPRINT_005_BIN_SERVICE_ABI_AND_PIPES.md).
+The first RAM-backed pipe supports:
+
+```text
+CAT /data/input.txt | WRITE /data/output.txt
+```
 
 ---
 

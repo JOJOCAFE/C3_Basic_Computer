@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
@@ -13,6 +14,7 @@
 
 #define SHELL_BUF 256
 #define FILE_IO_BUF 128
+#define SHELL_PIPE_BUF 2048
 
 static char g_workspace_cwd[STORAGE_PATH_MAX];
 static const shell_exec_io_t *g_exec_io;
@@ -21,6 +23,7 @@ static shell_external_exec_fn g_external_exec;
 
 static void shell_puts(const char *text);
 static void shell_write_bytes(const void *data, size_t len);
+static shell_status_t shell_exec_line_no_pipe(const char *line, const shell_exec_io_t *io);
 
 static const char *skip_ws(const char *s)
 {
@@ -107,6 +110,16 @@ static uint32_t shell_exec_flags(void)
     return g_exec_io ? g_exec_io->flags : 0;
 }
 
+static const char *shell_stdin_text(void)
+{
+    return g_exec_io ? g_exec_io->stdin_text : NULL;
+}
+
+static size_t shell_stdin_len(void)
+{
+    return g_exec_io ? g_exec_io->stdin_len : 0;
+}
+
 static void shell_print_dir_entry(const char *dir_path, const char *name)
 {
     char path[STORAGE_PATH_MAX];
@@ -179,7 +192,7 @@ void shell_register_external_exec(shell_external_exec_fn fn)
 static void shell_help(void)
 {
     shell_puts(
-        "HELP PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV\r\n"
+        "HELP PWD LS CD MKDIR RMDIR CAT WRITE RM CP MV EDIT\r\n"
         "RENEW\r\n");
 }
 
@@ -374,7 +387,8 @@ static void shell_write_file(char *args)
     }
 
     const char *text = skip_ws(cursor);
-    if (!path || !text || *text == '\0') {
+    bool use_stdin = !text || *text == '\0';
+    if (!path || (use_stdin && (!shell_stdin_text() || shell_stdin_len() == 0))) {
         shell_error("Bad input", SHELL_STATUS_BAD_INPUT);
         return;
     }
@@ -403,7 +417,8 @@ static void shell_write_file(char *args)
         return;
     }
 
-    size_t len = strlen(text);
+    size_t len = use_stdin ? shell_stdin_len() : strlen(text);
+    text = use_stdin ? shell_stdin_text() : text;
     bool ok = fwrite(text, 1, len, f) == len;
     if (fclose(f) != 0) {
         ok = false;
@@ -743,7 +758,137 @@ shell_status_t shell_exec_command(shell_command_t command, const char *args, con
     return shell_run_with_io(io, command, args);
 }
 
-shell_status_t shell_exec_line(const char *line, const shell_exec_io_t *io)
+typedef struct {
+    char *buf;
+    size_t cap;
+    size_t len;
+    bool overflow;
+} shell_capture_t;
+
+static void shell_capture_write(void *ctx, const void *data, size_t len)
+{
+    shell_capture_t *capture = (shell_capture_t *)ctx;
+    if (!capture || !data || len == 0 || capture->cap == 0) {
+        return;
+    }
+
+    size_t room = capture->cap - capture->len - 1;
+    if (len > room) {
+        len = room;
+        capture->overflow = true;
+    }
+
+    if (len > 0) {
+        memcpy(capture->buf + capture->len, data, len);
+        capture->len += len;
+        capture->buf[capture->len] = '\0';
+    }
+}
+
+static bool split_one_pipe(const char *line, char *left, size_t left_size, char *right, size_t right_size)
+{
+    const char *pipe = strchr(line, '|');
+    if (!pipe) {
+        return false;
+    }
+    if (strchr(pipe + 1, '|')) {
+        return false;
+    }
+
+    size_t left_len = (size_t)(pipe - line);
+    const char *right_start = pipe + 1;
+    while (left_len > 0 && isspace((unsigned char)line[left_len - 1])) {
+        left_len--;
+    }
+    while (*right_start && isspace((unsigned char)*right_start)) {
+        right_start++;
+    }
+
+    if (left_len == 0 || *right_start == '\0' || left_len >= left_size || strlen(right_start) >= right_size) {
+        return false;
+    }
+
+    memcpy(left, line, left_len);
+    left[left_len] = '\0';
+    strncpy(right, right_start, right_size - 1);
+    right[right_size - 1] = '\0';
+    return true;
+}
+
+static shell_status_t shell_exec_pipe(const char *line, const shell_exec_io_t *io)
+{
+    char left[SHELL_BUF];
+    char right[SHELL_BUF];
+    char *pipe_buf = calloc(1, SHELL_PIPE_BUF);
+    shell_capture_t capture = {
+        .buf = pipe_buf,
+        .cap = SHELL_PIPE_BUF,
+        .len = 0,
+        .overflow = false,
+    };
+
+    if (!pipe_buf) {
+        const shell_exec_io_t *prev_io = g_exec_io;
+        shell_status_t prev_status = g_exec_status;
+        g_exec_io = io;
+        g_exec_status = SHELL_STATUS_OK;
+        shell_error("Pipe memory failed", SHELL_STATUS_IO_ERROR);
+        g_exec_io = prev_io;
+        g_exec_status = prev_status;
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    if (!split_one_pipe(line, left, sizeof(left), right, sizeof(right))) {
+        const shell_exec_io_t *prev_io = g_exec_io;
+        shell_status_t prev_status = g_exec_status;
+        g_exec_io = io;
+        g_exec_status = SHELL_STATUS_OK;
+        shell_error("Bad pipe", SHELL_STATUS_BAD_INPUT);
+        g_exec_io = prev_io;
+        g_exec_status = prev_status;
+        free(pipe_buf);
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    shell_exec_io_t left_io = {
+        .write = shell_capture_write,
+        .read_line = io ? io->read_line : NULL,
+        .ctx = &capture,
+        .flags = io ? io->flags : 0,
+    };
+
+    shell_status_t left_status = shell_exec_line_no_pipe(left, &left_io);
+    if (left_status != SHELL_STATUS_OK && left_status != SHELL_STATUS_EMPTY) {
+        free(pipe_buf);
+        return left_status;
+    }
+    if (capture.overflow) {
+        const shell_exec_io_t *prev_io = g_exec_io;
+        shell_status_t prev_status = g_exec_status;
+        g_exec_io = io;
+        g_exec_status = SHELL_STATUS_OK;
+        shell_error("Pipe full", SHELL_STATUS_IO_ERROR);
+        g_exec_io = prev_io;
+        g_exec_status = prev_status;
+        free(pipe_buf);
+        return SHELL_STATUS_IO_ERROR;
+    }
+
+    shell_exec_io_t right_io = {
+        .write = io ? io->write : NULL,
+        .read_line = io ? io->read_line : NULL,
+        .ctx = io ? io->ctx : NULL,
+        .flags = io ? io->flags : 0,
+        .stdin_text = pipe_buf,
+        .stdin_len = capture.len,
+    };
+
+    shell_status_t right_status = shell_exec_line_no_pipe(right, &right_io);
+    free(pipe_buf);
+    return right_status;
+}
+
+static shell_status_t shell_exec_line_no_pipe(const char *line, const shell_exec_io_t *io)
 {
     const char *trimmed = line;
     if (!trimmed) {
@@ -794,6 +939,14 @@ shell_status_t shell_exec_line(const char *line, const shell_exec_io_t *io)
     }
 
     return shell_run_with_io(io, parsed, arg);
+}
+
+shell_status_t shell_exec_line(const char *line, const shell_exec_io_t *io)
+{
+    if (line && strchr(line, '|')) {
+        return shell_exec_pipe(line, io);
+    }
+    return shell_exec_line_no_pipe(line, io);
 }
 
 const char *shell_status_name(shell_status_t status)

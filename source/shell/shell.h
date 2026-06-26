@@ -48,6 +48,8 @@ struct shell_exec_io {
     shell_read_line_fn read_line;
     void *ctx;
     uint32_t flags;
+    const char *stdin_text;
+    size_t stdin_len;
 };
 
 void shell_reset(void);

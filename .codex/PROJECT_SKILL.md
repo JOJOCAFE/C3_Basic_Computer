@@ -74,11 +74,22 @@ When implementing or planning, treat this file as the authoritative behavior con
   `LS`, `CD`, `MKDIR`, `RMDIR`, `CAT`, `WRITE`, `RM`, `RM -R`, `CP`, `MV`,
   and protected `RENEW`.
 - Active shell source and shell feature docs live in `source/shell/`.
-- Active build/test tooling lives in root `tools/`; `Old_version/` is legacy
-  reference only and is not the active build target.
+- Active build/test tooling lives in root `tools/`; root source is the active build target.
 - BASIC parsing code remains in the tree for a later runtime/editor entry point,
   but BASIC commands are not exposed by the boot shell.
-- ASM capture is the next candidate milestone; native execution remains blocked until a later guarded runtime sprint.
+- Editor planning now routes through `docs/SPRINT_004_NANO_EDITOR_SERVICE.md`:
+  `/bin/nano` is a standalone nano-style editor service, `EDIT <path>` is the
+  shell command, first implementation is `.txt` only, and later `BASIC <path>`
+  plus `ASM <path>` call nano with removable language plugins/services. The
+  editor implementation lives under `source/editor`; `source/bin/bin_nano.c` is
+  the `/bin` service adapter. GNU nano is a behavior reference only, not source
+  to import.
+- `/bin` services follow the registry in `source/bin/bin_registry.c`; use
+  `docs/SPRINT_005_BIN_SERVICE_ABI_AND_PIPES.md` for DOS-style service and pipe
+  planning. Services are firmware-linked and build-selectable for now, not
+  loadable workspace executables.
+- ASM capture follows the editor/plugin boundary; native execution remains
+  blocked until a later guarded runtime sprint.
 - BLE HID keyboard support has a compiled input boundary and boot-keyboard mapper, but real keyboard pairing remains hardware-pending.
 
 ## Protected Recovery Invariant

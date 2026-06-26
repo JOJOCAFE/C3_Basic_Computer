@@ -1,6 +1,7 @@
 #include "bin.h"
 
 #include "bin_internal.h"
+#include "bin_service.h"
 #include "input.h"
 
 #include <ctype.h>
@@ -79,9 +80,19 @@ shell_status_t bin_exec_line(const char *line, const shell_exec_io_t *io)
         return SHELL_STATUS_EMPTY;
     }
 
-    if (strcasecmp(command, "/bin/hardware") == 0 ||
-        strcasecmp(command, "bin/hardware") == 0) {
-        return bin_hardware_exec(cursor, io);
+    if (strcasecmp(command, "/bin") == 0 || strcasecmp(command, "bin") == 0) {
+        char *subcommand = next_token(&cursor);
+        if (subcommand && strcasecmp(subcommand, "list") == 0 && *skip_ws(cursor) == '\0') {
+            bin_list_services(io);
+            return SHELL_STATUS_OK;
+        }
+        bin_write(io, "Usage: /bin list\r\n");
+        return SHELL_STATUS_BAD_INPUT;
+    }
+
+    const bin_service_t *service = bin_find_service(command);
+    if (service) {
+        return service->exec(cursor, io);
     }
 
     return SHELL_STATUS_UNKNOWN_COMMAND;
