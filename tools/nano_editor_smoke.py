@@ -145,14 +145,14 @@ def main(argv: list[str]) -> int:
     second = f"second-{token}"
     long_line = "LONG-" + ("A" * 1024) + "-END"
     large_lines = [f"LARGE-BEGIN-{token}", long_line]
-    for i in range(29):
+    for i in range(120):
         large_lines.append(f"L{i:02d}-" + ("B" * 500))
     large_lines.append(f"LARGE-END-{token}")
     large_size = sum(len(line) for line in large_lines) + len(large_lines) - 1
-    require(large_size > 15 * 1024, "large fixture is not large enough")
-    require(large_size < 16 * 1024, "large fixture exceeds editor target size")
+    require(large_size > 60 * 1024, "large fixture is not large enough")
+    require(large_size < 64 * 1024, "large fixture exceeds editor target size")
     overflow_lines = [f"OVERFLOW-BEGIN-{token}"]
-    for i in range(34):
+    for i in range(132):
         overflow_lines.append(f"O{i:02d}-" + ("C" * 500))
 
     session = ShellSession(args.port, args.baud, args.timeout)

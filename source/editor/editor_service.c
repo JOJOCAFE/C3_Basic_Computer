@@ -11,7 +11,7 @@
 #include <strings.h>
 #include <sys/stat.h>
 
-#define EDITOR_TEXT_MAX (16 * 1024)
+#define EDITOR_TEXT_MAX (64 * 1024)
 #define EDITOR_READ_CHUNK 128
 
 typedef struct {

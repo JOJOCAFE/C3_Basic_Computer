@@ -233,8 +233,8 @@ to nano plugin modes, not shell built-ins for language runtime behavior.
 
 Current editor limits:
 
-- Text buffer: 16 KiB per open file, including line separators.
-- Input line buffer: 16 KiB, bounded by the same editor buffer capacity.
+- Text buffer: 64 KiB per open file, including line separators.
+- Input line buffer: 64 KiB, bounded by the same editor buffer capacity.
 - If editor allocation fails, it prints `Out of memory` and returns to the
   shell instead of entering a partial editor state.
 - Files larger than the editor buffer are rejected with `File too large`.

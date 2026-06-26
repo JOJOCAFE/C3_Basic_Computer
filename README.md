@@ -148,8 +148,8 @@ Text line  Append text
 Current limits and behavior:
 
 - Edits `/data/*.txt` only.
-- Text buffer is 16 KiB per open file, including line separators.
-- Input line buffer is 16 KiB, bounded by the same editor capacity.
+- Text buffer is 64 KiB per open file, including line separators.
+- Input line buffer is 64 KiB, bounded by the same editor capacity.
 - Allocation failure prints `Out of memory` and returns to the shell.
 - Opening a file larger than the editor buffer prints `File too large`.
 - Appending beyond the editor buffer prints `Buffer full` and returns to the shell.

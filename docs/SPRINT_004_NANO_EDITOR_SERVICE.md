@@ -8,8 +8,8 @@ plugins that are launched through the same nano service.
 
 Current `.txt` editor capacity:
 
-- 16 KiB text buffer per open file.
-- Input line buffer is allocated to the same 16 KiB bound.
+- 64 KiB text buffer per open file.
+- Input line buffer is allocated to the same 64 KiB bound.
 - Allocation failure prints `Out of memory` and returns a shell error instead
   of entering a partial editor state.
 - Existing files larger than the editor buffer are rejected with
@@ -390,8 +390,8 @@ Board verification:
 - 2026-06-27: `python3 tools/renew_full_smoke.py --port /dev/ttyACM0` passed.
 - 2026-06-27: `python3 tools/nano_editor_smoke.py --port /dev/ttyACM0` passed
   for open, append, `:help`, `:p`, `:w`, clean `:q`, dirty `:q` refusal,
-  `:q!`, `:clear`, `:wq`, direct `/bin/nano`, near-16 KiB file content,
-  over-16 KiB `Buffer full`, long lines, and binary-ish hostile input.
+  `:q!`, `:clear`, `:wq`, direct `/bin/nano`, near-64 KiB file content,
+  over-64 KiB `Buffer full`, long lines, and binary-ish hostile input.
 - Fix recorded during board verification: `editor_run()` now keeps the editor buffer on heap instead of the main task stack.
 
 ## Non-Goals

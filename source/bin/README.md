@@ -61,8 +61,8 @@ Text line  Append text
 Current limits and failure behavior:
 
 - Only `/data/*.txt` files are accepted.
-- Text buffer is 16 KiB per open file, including line separators.
-- Input line buffer is 16 KiB, bounded by the same editor capacity.
+- Text buffer is 64 KiB per open file, including line separators.
+- Input line buffer is 64 KiB, bounded by the same editor capacity.
 - If allocation fails, nano prints `Out of memory` and returns a shell error.
 - If an existing file is larger than the editor buffer, nano prints `File too large`.
 - If appended text exceeds the editor buffer, nano prints `Buffer full` and returns to the shell.
