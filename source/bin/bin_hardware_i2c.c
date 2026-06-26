@@ -259,3 +259,4 @@ shell_status_t bin_hardware_i2c_exec(const char *args, const shell_exec_io_t *io
 
     return i2c_bad_input(io);
 }
+//Keep Going.

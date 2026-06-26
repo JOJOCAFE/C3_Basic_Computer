@@ -27,3 +27,4 @@ uint32_t hardware_get_protected_pin_mask(void);
 #ifdef __cplusplus
 }
 #endif
+//Keep Going.

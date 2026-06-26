@@ -40,3 +40,4 @@ esp_err_t hardware_spi_transfer(const uint8_t *tx_data, uint8_t *rx_data,
 #ifdef __cplusplus
 }
 #endif
+//Keep Going.

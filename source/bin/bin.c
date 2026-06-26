@@ -97,3 +97,4 @@ shell_status_t bin_exec_line(const char *line, const shell_exec_io_t *io)
 
     return SHELL_STATUS_UNKNOWN_COMMAND;
 }
+//Keep Going.

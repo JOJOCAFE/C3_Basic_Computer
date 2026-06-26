@@ -138,3 +138,4 @@ shell_status_t bin_hardware_adc_exec(const char *args, const shell_exec_io_t *io
 
     return adc_bad_input(io);
 }
+//Keep Going.

@@ -155,3 +155,4 @@ esp_err_t hardware_gpio_toggle(gpio_num_t pin, bool allow_protected_pin)
 
     return hardware_gpio_write(pin, level ? 0 : 1, allow_protected_pin);
 }
+//Keep Going.

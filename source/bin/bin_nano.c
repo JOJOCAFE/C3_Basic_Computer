@@ -75,3 +75,4 @@ shell_status_t bin_basic_exec(const char *args, const shell_exec_io_t *io)
 {
     return bin_editor_exec(args, io, EDITOR_MODE_BASIC, "Usage: BASIC /basic/name.bas\r\n");
 }
+//Keep Going.

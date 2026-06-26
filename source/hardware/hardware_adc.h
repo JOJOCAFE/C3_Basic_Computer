@@ -33,3 +33,4 @@ esp_err_t hardware_adc_read_gpio(gpio_num_t gpio_num,
 #ifdef __cplusplus
 }
 #endif
+//Keep Going.

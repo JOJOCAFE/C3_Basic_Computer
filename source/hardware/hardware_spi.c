@@ -171,3 +171,4 @@ esp_err_t hardware_spi_transfer(const uint8_t *tx_data, uint8_t *rx_data,
 
     return spi_device_transmit(s_spi_device, &transaction);
 }
+//Keep Going.

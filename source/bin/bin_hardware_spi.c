@@ -260,3 +260,4 @@ shell_status_t bin_hardware_spi_exec(const char *args, const shell_exec_io_t *io
 
     return spi_bad_input(io);
 }
+//Keep Going.

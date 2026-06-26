@@ -208,3 +208,4 @@ esp_err_t hardware_i2c_write_register(uint8_t address, uint8_t reg,
 
     return hardware_i2c_write(address, buffer, data_len + 1U, timeout_ms);
 }
+//Keep Going.

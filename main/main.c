@@ -18,3 +18,4 @@ void app_main(void)
     shell_register_external_exec(bin_exec_line);
     shell_run();
 }
+//Keep Going.

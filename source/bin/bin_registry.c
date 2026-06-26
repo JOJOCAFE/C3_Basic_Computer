@@ -88,3 +88,4 @@ void bin_list_services(const shell_exec_io_t *io)
         bin_write(io, "\r\n");
     }
 }
+//Keep Going.

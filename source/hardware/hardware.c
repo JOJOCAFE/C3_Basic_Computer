@@ -47,3 +47,4 @@ uint32_t hardware_get_protected_pin_mask(void)
     return (1UL << HARDWARE_PROTECTED_GPIO18) |
            (1UL << HARDWARE_PROTECTED_GPIO19);
 }
+//Keep Going.

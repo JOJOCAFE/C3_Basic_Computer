@@ -238,3 +238,4 @@ shell_status_t bin_hardware_exec(const char *args, const shell_exec_io_t *io)
     bin_write(io, "Bad input\r\n");
     return SHELL_STATUS_BAD_INPUT;
 }
+//Keep Going.

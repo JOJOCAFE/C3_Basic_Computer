@@ -12,3 +12,4 @@ shell_status_t bin_hardware_i2c_exec(const char *args, const shell_exec_io_t *io
 shell_status_t bin_hardware_spi_exec(const char *args, const shell_exec_io_t *io);
 shell_status_t bin_nano_exec(const char *args, const shell_exec_io_t *io);
 shell_status_t bin_basic_exec(const char *args, const shell_exec_io_t *io);
+//Keep Going.

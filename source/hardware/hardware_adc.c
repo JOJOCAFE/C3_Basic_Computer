@@ -159,3 +159,4 @@ esp_err_t hardware_adc_read_gpio(gpio_num_t gpio_num,
     *result_out = result;
     return ESP_OK;
 }
+//Keep Going.

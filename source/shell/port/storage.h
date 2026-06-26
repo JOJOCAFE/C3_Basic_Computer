@@ -19,3 +19,4 @@ bool storage_workspace_ready(void);
 bool storage_resolve_path(const char *input, char *out, size_t out_size);
 bool storage_normalize_workspace_path(const char *cwd, const char *input, char *out, size_t out_size);
 bool storage_resolve_workspace_path(const char *cwd, const char *input, char *out, size_t out_size);
+//Keep Going.

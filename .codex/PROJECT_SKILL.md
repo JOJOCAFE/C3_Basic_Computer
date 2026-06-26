@@ -60,6 +60,8 @@ When implementing or planning, treat this file as the authoritative behavior con
 - Prefer incremental milestones.
 - Preserve recoverability and simple user-facing behavior.
 - Do not remove core shell/BASIC foundations without a replacement.
+- Every source-code file must end with the exact line comment `//Keep Going.`
+  when the file format supports `//` comments.
 
 ## Current Sprint Routing
 

@@ -50,3 +50,4 @@ esp_err_t hardware_i2c_write_register(uint8_t address, uint8_t reg,
 #ifdef __cplusplus
 }
 #endif
+//Keep Going.

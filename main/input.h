@@ -33,3 +33,4 @@ void input_write_bytes(const void *data, size_t len);
 esp_err_t input_ble_hid_init(void);
 bool input_ble_hid_ready(void);
 bool input_ble_hid_boot_key_to_ascii(uint8_t modifier, uint8_t keycode, char *ascii);
+//Keep Going.

@@ -342,3 +342,4 @@ bool storage_resolve_workspace_path(const char *cwd, const char *input, char *ou
 
     return snprintf(out, out_size, "%s%s", STORAGE_WORKSPACE_MOUNT_POINT, relative) < (int)out_size;
 }
+//Keep Going.

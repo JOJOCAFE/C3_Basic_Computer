@@ -33,3 +33,4 @@ shell_status_t editor_status_to_shell_status(editor_status_t status);
 #ifdef __cplusplus
 }
 #endif
+//Keep Going.
