@@ -33,6 +33,47 @@ EDIT /data/note.txt
 HARDWARE gpio read -p <gpio>
 ```
 
+## Nano Editor Service
+
+`/bin/nano` is a firmware-linked line editor service. `EDIT` is the shell alias
+for the same service.
+
+Open a text file:
+
+```text
+EDIT /data/note.txt
+/bin/nano /data/note.txt
+```
+
+Supported editor commands:
+
+```text
+Text line  Append text
+:w         Save
+:q         Quit if clean
+:q!        Quit without saving
+:wq        Save and quit
+:p         Print buffer
+:clear     Clear buffer
+:help      Help
+```
+
+Current limits and failure behavior:
+
+- Only `/data/*.txt` files are accepted.
+- Text buffer is 16 KiB per open file, including line separators.
+- Input line buffer is 16 KiB, bounded by the same editor capacity.
+- If allocation fails, nano prints `Out of memory` and returns a shell error.
+- If an existing file is larger than the editor buffer, nano prints `File too large`.
+- If appended text exceeds the editor buffer, nano prints `Buffer full` and returns to the shell.
+- Thai text and Thai filenames under `/data` have been board-tested.
+
+Board smoke:
+
+```bash
+python3 tools/nano_editor_smoke.py --port /dev/ttyACM0 --timeout 25
+```
+
 Build-time service selection defaults:
 
 ```c

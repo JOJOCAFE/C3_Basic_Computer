@@ -69,6 +69,8 @@ python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
 python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0
 python3 tools/renew_full_smoke.py --port /dev/ttyACM0
 python3 tools/adversarial_shell_smoke.py --port /dev/ttyACM0
+python3 tools/nano_editor_smoke.py --port /dev/ttyACM0 --timeout 25
+python3 tools/bin_pipe_smoke.py --port /dev/ttyACM0
 python3 tools/bin_hardware_gpio_smoke.py --port /dev/ttyACM0 --pin 8 --seconds 10
 python3 tools/bin_hardware_adc_smoke.py --port /dev/ttyACM0 --pin 0
 python3 tools/bin_hardware_i2c_smoke.py --port /dev/ttyACM0 --sda 6 --scl 7
@@ -110,7 +112,7 @@ Not exposed by the boot shell: `DIR`, `COPY`, `MOVE`, `RENAME`, `DELETE`,
 `PRINT`.
 
 Later workspace/system/monitor targets:
-`EDIT`, `BASIC`, `ASM`, `VERSION`, `MEMORY`, `DATE`, `TIME`, `DIAGNOSTICS`,
+`BASIC`, `ASM`, `VERSION`, `MEMORY`, `DATE`, `TIME`, `DIAGNOSTICS`,
 `REG`, `MEM`, `DUMP`, `DISASM`, `STEP`, `BREAK`
 
 `EDIT <path>` is the text editor command backed by `/bin/nano`.
@@ -119,6 +121,39 @@ editor service with the BASIC or ASM plugin selected.
 Linked services can be listed with `/bin list`.
 
 Only implemented commands should appear in firmware `HELP`.
+
+## Board-checked nano editor commands
+
+Nano is a line-oriented `.txt` editor service. It works through either the shell
+alias or the canonical `/bin` service path:
+
+```text
+EDIT /data/note.txt
+/bin/nano /data/note.txt
+```
+
+Inside nano:
+
+```text
+Text line  Append text
+:w         Save
+:q         Quit if clean
+:q!        Quit without saving
+:wq        Save and quit
+:p         Print buffer
+:clear     Clear buffer
+:help      Help
+```
+
+Current limits and behavior:
+
+- Edits `/data/*.txt` only.
+- Text buffer is 16 KiB per open file, including line separators.
+- Input line buffer is 16 KiB, bounded by the same editor capacity.
+- Allocation failure prints `Out of memory` and returns to the shell.
+- Opening a file larger than the editor buffer prints `File too large`.
+- Appending beyond the editor buffer prints `Buffer full` and returns to the shell.
+- Thai text and Thai filenames under `/data` have been board-tested.
 
 ## Board-checked hardware commands
 
