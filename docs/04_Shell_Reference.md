@@ -206,6 +206,12 @@ For `CP` and `MV`, a wildcard source requires an existing destination directory;
 the command keeps each matching filename. `WRITE`, `RECV`, `SEND`, `CD`,
 `MKDIR`, and `RMDIR` keep literal path behavior.
 
+Workspace path components must be valid UTF-8. Terminal control bytes, invalid
+UTF-8 byte sequences, backslash, empty path arguments, and paths that would
+overflow the workspace path buffer are rejected with a clean error such as
+`Bad path` or `Bad input`. Spaces are command separators; filenames with spaces
+are not part of the current line shell contract.
+
 ---
 
 ## System Commands

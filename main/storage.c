@@ -81,6 +81,84 @@ static bool workspace_path_pop(char *path)
     return true;
 }
 
+static bool workspace_path_component_valid(const char *component)
+{
+    const unsigned char *scan = (const unsigned char *)component;
+    while (*scan) {
+        unsigned char c = *scan++;
+        if (c < 0x20 || c == 0x7f) {
+            return false;
+        }
+        if (c < 0x80) {
+            continue;
+        }
+
+        if (c >= 0xc2 && c <= 0xdf) {
+            if (strlen((const char *)scan) < 1) {
+                return false;
+            }
+            if ((*scan & 0xc0) != 0x80) {
+                return false;
+            }
+            scan++;
+        } else if (c == 0xe0) {
+            if (strlen((const char *)scan) < 2) {
+                return false;
+            }
+            if (scan[0] < 0xa0 || scan[0] > 0xbf || (scan[1] & 0xc0) != 0x80) {
+                return false;
+            }
+            scan += 2;
+        } else if ((c >= 0xe1 && c <= 0xec) || (c >= 0xee && c <= 0xef)) {
+            if (strlen((const char *)scan) < 2) {
+                return false;
+            }
+            if ((scan[0] & 0xc0) != 0x80 || (scan[1] & 0xc0) != 0x80) {
+                return false;
+            }
+            scan += 2;
+        } else if (c == 0xed) {
+            if (strlen((const char *)scan) < 2) {
+                return false;
+            }
+            if (scan[0] < 0x80 || scan[0] > 0x9f || (scan[1] & 0xc0) != 0x80) {
+                return false;
+            }
+            scan += 2;
+        } else if (c == 0xf0) {
+            if (strlen((const char *)scan) < 3) {
+                return false;
+            }
+            if (scan[0] < 0x90 || scan[0] > 0xbf ||
+                (scan[1] & 0xc0) != 0x80 || (scan[2] & 0xc0) != 0x80) {
+                return false;
+            }
+            scan += 3;
+        } else if (c >= 0xf1 && c <= 0xf3) {
+            if (strlen((const char *)scan) < 3) {
+                return false;
+            }
+            if ((scan[0] & 0xc0) != 0x80 || (scan[1] & 0xc0) != 0x80 ||
+                (scan[2] & 0xc0) != 0x80) {
+                return false;
+            }
+            scan += 3;
+        } else if (c == 0xf4) {
+            if (strlen((const char *)scan) < 3) {
+                return false;
+            }
+            if (scan[0] < 0x80 || scan[0] > 0x8f ||
+                (scan[1] & 0xc0) != 0x80 || (scan[2] & 0xc0) != 0x80) {
+                return false;
+            }
+            scan += 3;
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool workspace_path_append(char *path, size_t path_size, const char *component)
 {
     if (!component || component[0] == '\0' || strcmp(component, ".") == 0) {
@@ -91,7 +169,7 @@ static bool workspace_path_append(char *path, size_t path_size, const char *comp
         return workspace_path_pop(path);
     }
 
-    if (strchr(component, '\\') != NULL) {
+    if (!workspace_path_component_valid(component) || strchr(component, '\\') != NULL) {
         return false;
     }
 

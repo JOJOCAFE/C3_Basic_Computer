@@ -209,6 +209,9 @@ Current limits and behavior:
   `/basic/untitled-N.bas`.
 - `:q` exits a clean untitled buffer without creating a file; dirty untitled
   buffers require `:w`, `:wq`, or `:q!`.
+- Workspace path components must be valid UTF-8 and must not contain terminal
+  control bytes or backslash. Invalid binary/control filenames are rejected with
+  `Bad path`.
 - Text buffer is 64 KiB per open file, including line separators.
 - Input line buffer is 64 KiB, bounded by the same editor capacity.
 - Allocation failure prints `Out of memory` and returns to the shell.

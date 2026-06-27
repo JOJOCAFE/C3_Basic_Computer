@@ -59,6 +59,10 @@ Date: 2026-06-27
   filename. Untitled text buffers save to `/data/untitled-N.txt`; untitled BASIC
   buffers save to `/basic/untitled-N.bas`; clean `:q` creates no file and dirty
   `:q` requires save or discard.
+- Filename/path adversarial hardening is implemented: workspace path components
+  must be valid UTF-8, terminal control bytes and invalid binary byte sequences
+  are rejected, and overlong `/bin` dispatch lines return `Bad input` instead of
+  executing a truncated command.
 
 ## Latest Commits
 
@@ -72,13 +76,13 @@ Date: 2026-06-27
 
 - Branch: `main`
 - Tracks `origin/main`.
-- Sprint 010 `/bin/term` plus BASIC `TERM` and Sprint 011 untitled editor
-  changes are implemented, board-tested, and ready to commit.
+- Branch is ahead of `origin/main` from the Sprint 010/Sprint 011 commit, with
+  filename adversarial hardening now staged for the next commit after review.
 
 ## Known Unstaged Local Changes
 
-- Sprint 010 BASIC `TERM`, Sprint 011 untitled editor launch, docs, smokes, and
-  this handoff update.
+- Filename/path adversarial hardening, `tools/filename_adversarial_smoke.py`,
+  docs, and this handoff update.
 
 ## Board Verification
 
@@ -111,6 +115,14 @@ Date: 2026-06-27
   - `BASIC`, numbered source, `:wq` creates the first free `/basic/untitled-N.bas`.
   - Clean untitled `:q` does not create a file.
   - Dirty untitled `:q` refuses and `:q!` discards.
+- Latest filename adversarial smoke checks:
+  - No-name `CAT`, `WRITE`, `RM`, `CP`, and `MV` fail cleanly.
+  - No-name `EDIT`, `/bin/nano`, and `BASIC` open untitled buffers and return to
+    the shell with `:q`.
+  - Very long file paths fail cleanly without hanging.
+  - Valid UTF-8 filenames, including Thai text, still write/read/remove.
+  - Invalid raw NUL, `0xff`, ESC/control, and overlong raw filename input is
+    rejected while the shell remains responsive.
 
 ## Recommended Next Start
 

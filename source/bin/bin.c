@@ -71,6 +71,9 @@ shell_status_t bin_exec_line(const char *line, const shell_exec_io_t *io)
 
     char buf[BIN_BUF];
     const char *trimmed = skip_ws(line);
+    if (strlen(trimmed) >= sizeof(buf)) {
+        return SHELL_STATUS_BAD_INPUT;
+    }
     strncpy(buf, trimmed, sizeof(buf) - 1);
     buf[sizeof(buf) - 1] = '\0';
 
