@@ -66,23 +66,22 @@ Date: 2026-06-27
 
 ## Latest Commits
 
+- `1597ab5` Harden workspace filename handling
+- `cb7b2ed` Add BASIC TERM and untitled editor launch
+- `f102c0e` Add untitled nano BASIC launch task
+- `301e5a7` Add terminal service helper and bin command
 - `79d3f0b` Start Sprint 010 terminal service docs
-- `bf117aa` Add shell wildcard file commands
-- `9427712` Plan terminal service for BASIC text UI
-- `e92cfca` Add shell YMODEM transfer and C3COM runner
-- `f7b5f5d` Update final session status
 
 ## Current Branch State
 
 - Branch: `main`
 - Tracks `origin/main`.
-- Branch is ahead of `origin/main` from the Sprint 010/Sprint 011 commit, with
-  filename adversarial hardening now staged for the next commit after review.
+- Branch is ahead of `origin/main` by two commits until pushed:
+  `cb7b2ed` and `1597ab5`.
 
 ## Known Unstaged Local Changes
 
-- Filename/path adversarial hardening, `tools/filename_adversarial_smoke.py`,
-  docs, and this handoff update.
+- This handoff update only.
 
 ## Board Verification
 
@@ -126,8 +125,7 @@ Date: 2026-06-27
 
 ## Recommended Next Start
 
-1. Commit and push Sprint 010 BASIC `TERM` plus Sprint 011 untitled editor
-   launch if the current diff is accepted.
+1. Push `main` if not already pushed.
 2. Resume Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
 3. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
 4. Resume ASM capture as a non-execution milestone after ASM editor mode is
