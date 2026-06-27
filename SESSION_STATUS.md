@@ -29,33 +29,57 @@ Date: 2026-06-27
   now preserve the useful requirements without stale command/runtime behavior.
 - Sprint 1 recovery docs were reviewed and migrated from legacy `Old_version/`
   paths to current root/source paths.
+- Shell filename wildcard support is implemented for `LS`, `CAT`, `RM`, `CP`,
+  and `MV`. Supported patterns include `*.*`, `*.bas`, and `xx.*`.
+- `CP` and `MV` wildcard sources require an existing destination directory and
+  keep each matching filename.
+- `tools/workspace_shell_smoke.py` now covers wildcard `LS`, `CAT`, `RM`,
+  `CP`, and `MV` behavior.
+- Host verification passed for the wildcard change:
+  `python3 -m py_compile tools/workspace_shell_smoke.py`,
+  `git diff --check`, and `tools/idf53.sh -B build-c3-root build`.
+- Board verification passed on `/dev/ttyACM0`:
+  `tools/idf53.sh -B build-c3-root -p /dev/ttyACM0 flash` and
+  `python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0`.
+- Main task stack default is now 8192 bytes so wildcard file operations have
+  enough stack headroom on ESP32-C3.
 
 ## Latest Commits
 
+- Current `HEAD` Add shell wildcard file commands
+- `9427712` Plan terminal service for BASIC text UI
+- `e92cfca` Add shell YMODEM transfer and C3COM runner
+- `f7b5f5d` Update final session status
 - `9a8a51e` Remove legacy tree and update Sprint 1 docs
-- `6a21dca` Add session handoff
-- `bcf3033` Require Keep Going source footer
-- `46ea658` Sync docs with BASIC hardware services
-- `0f72896` Add typed BASIC hardware service
 
 ## Current Branch State
 
 - Branch: `main`
-- Synced after final push.
+- Tracks `origin/main`.
+- Current wildcard changes are committed locally and ready to push.
 
 ## Known Unstaged Local Changes
 
-Sprint 010 terminal service planning docs are ready to commit.
+- None expected after the wildcard test commit is amended.
+
+## Board Verification
+
+- Latest board-tested commands:
+  ```bash
+  tools/idf53.sh -B build-c3-root -p /dev/ttyACM0 flash
+  python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
+  ```
 
 ## Recommended Next Start
 
-1. Start Sprint 010 from
+1. Push the local wildcard shell commit if remote sync is desired.
+2. Start Sprint 010 from
    `docs/SPRINT_010_TERMINAL_SERVICE_AND_BASIC_TERM.md`.
-2. Implement `/bin/term` as an output-only ANSI/VT100 terminal service.
-3. Add BASIC `TERM "..."` as a safe bridge to `/bin/term`.
-4. Then resume Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
-5. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
-6. Resume ASM capture as a non-execution milestone after ASM editor mode is
+3. Implement `/bin/term` as an output-only ANSI/VT100 terminal service.
+4. Add BASIC `TERM "..."` as a safe bridge to `/bin/term`.
+5. Then resume Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
+6. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
+7. Resume ASM capture as a non-execution milestone after ASM editor mode is
    stable and board-tested.
 
 Keep Going.

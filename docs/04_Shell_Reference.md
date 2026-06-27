@@ -175,6 +175,16 @@ Examples
 
 > CAT basic/hello.bas
 
+> LS basic/*.bas
+
+> CAT basic/xx.*
+
+> RM basic/*.bas
+
+> CP basic/*.bas temp
+
+> MV basic/xx.* temp
+
 > CP basic/hello.bas basic/copy.bas
 
 > MV basic/copy.bas basic/renamed.bas
@@ -187,6 +197,14 @@ same nano editor service with the BASIC plugin selected. Future `ASM <path>`
 should call nano with the ASM plugin selected. Native ASM capture remains a
 text-validation milestone; native C3COM execution is a separate guarded
 `RUN /bin/name.com [args...]` path.
+
+Filename wildcards are supported by `LS`, `CAT`, `RM`, `CP`, and `MV`. `*`
+matches any number of filename characters, and `?` matches one filename
+character. Wildcards match only inside the named directory, so `basic/*.bas`,
+`*.*`, and `xx.*` are valid, while recursive globbing is not part of this shell.
+For `CP` and `MV`, a wildcard source requires an existing destination directory;
+the command keeps each matching filename. `WRITE`, `RECV`, `SEND`, `CD`,
+`MKDIR`, and `RMDIR` keep literal path behavior.
 
 ---
 

@@ -89,16 +89,16 @@ in firmware and have been checked on the ESP32-C3 board over `/dev/ttyACM0`.
 | --- | --- | --- |
 | `HELP` | Works | Prints only the implemented shell commands. |
 | `PWD` | Works | Prints the current workspace-relative directory. |
-| `LS [path]` | Works | Lists workspace entries; directories are shown as `/name`, files as `name`. |
+| `LS [path]` | Works | Lists workspace entries; directories are shown as `/name`, files as `name`; filename wildcards such as `*.*`, `*.bas`, and `xx.*` are supported. |
 | `CD <path>` | Works | Changes current workspace directory. |
 | `MKDIR <path>` | Works | Creates directories inside `/workspace`. |
 | `RMDIR <dir>` | Works | Removes an empty directory inside `/workspace`. |
-| `CAT <file>` | Works | Prints a text file. |
+| `CAT <file>` | Works | Prints a text file; filename wildcards print each matching file. |
 | `WRITE <file> <text>` | Works | Creates a text file inside `/workspace`. |
-| `RM <file>` | Works | Removes files; directories are rejected unless `-R` is used. |
-| `RM -R <path>` | Works | Recursively removes a workspace file or directory subtree. |
-| `CP <src> <dst>` | Works | Copies files inside `/workspace`. |
-| `MV <src> <dst>` | Works | Moves or renames files and directories inside `/workspace`. |
+| `RM <file>` | Works | Removes files; filename wildcards remove matching files. Directories are rejected unless `-R` is used. |
+| `RM -R <path>` | Works | Recursively removes a workspace file or directory subtree; filename wildcards apply to matching entries. |
+| `CP <src> <dst>` | Works | Copies files inside `/workspace`; wildcard sources such as `*.bas` copy matching files into an existing destination directory. |
+| `MV <src> <dst>` | Works | Moves or renames files and directories inside `/workspace`; wildcard sources such as `xx.*` move matching files into an existing destination directory. |
 | `DF` | Works | Shows workspace total, used, and available 1K blocks. |
 | `RECV [-F] <path>` | Works | Receives one YMODEM file into the exact workspace path, with overwrite guard and free-space preflight. |
 | `SEND <path>` | Works | Sends one workspace file by YMODEM with exact size and bytes. |

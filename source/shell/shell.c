@@ -23,6 +23,7 @@
 #define YMODEM_START_RETRIES 16
 #define YMODEM_MAX_FILE_SIZE (512u * 1024u)
 #define C3_COM_ARG_MAX 8
+#define SHELL_GLOB_MATCH_MAX 32
 
 enum {
     YMODEM_SOH = 0x01,
@@ -39,10 +40,12 @@ static char g_workspace_cwd[STORAGE_PATH_MAX];
 static const shell_exec_io_t *g_exec_io;
 static shell_status_t g_exec_status;
 static shell_external_exec_fn g_external_exec;
+static char g_glob_matches[SHELL_GLOB_MATCH_MAX][STORAGE_PATH_MAX];
 
 static void shell_puts(const char *text);
 static void shell_write_bytes(const void *data, size_t len);
 static shell_status_t shell_exec_line_no_pipe(const char *line, const shell_exec_io_t *io);
+static const char *path_basename(const char *path);
 
 static const char *skip_ws(const char *s)
 {
@@ -153,6 +156,127 @@ static void shell_print_dir_entry(const char *dir_path, const char *name)
     }
     shell_puts(name);
     shell_puts("\r\n");
+}
+
+static bool shell_has_wildcard(const char *text)
+{
+    return text && (strchr(text, '*') || strchr(text, '?'));
+}
+
+static bool shell_glob_match(const char *pattern, const char *text)
+{
+    if (!pattern || !text) {
+        return false;
+    }
+
+    while (*pattern) {
+        if (*pattern == '*') {
+            while (*pattern == '*') {
+                pattern++;
+            }
+            if (*pattern == '\0') {
+                return true;
+            }
+            while (*text) {
+                if (shell_glob_match(pattern, text)) {
+                    return true;
+                }
+                text++;
+            }
+            return false;
+        }
+
+        if (*text == '\0') {
+            return false;
+        }
+
+        if (*pattern != '?' &&
+            toupper((unsigned char)*pattern) != toupper((unsigned char)*text)) {
+            return false;
+        }
+        pattern++;
+        text++;
+    }
+
+    return *text == '\0';
+}
+
+static bool shell_split_pattern(const char *arg, char *dir_arg, size_t dir_arg_size,
+                                char *pattern, size_t pattern_size)
+{
+    char normalized[STORAGE_PATH_MAX];
+    if (!storage_normalize_workspace_path(g_workspace_cwd, arg, normalized, sizeof(normalized))) {
+        return false;
+    }
+
+    const char *last_sep = strrchr(normalized, '/');
+    const char *name = last_sep ? last_sep + 1 : normalized;
+    if (!name || *name == '\0' || !shell_has_wildcard(name)) {
+        return false;
+    }
+
+    size_t dir_len = last_sep ? (size_t)(last_sep - normalized) : 0;
+    if (dir_len == 0) {
+        dir_len = 1;
+    }
+    if (dir_len >= dir_arg_size || strlen(name) >= pattern_size) {
+        return false;
+    }
+
+    memcpy(dir_arg, normalized, dir_len);
+    dir_arg[dir_len] = '\0';
+    snprintf(pattern, pattern_size, "%s", name);
+    return true;
+}
+
+static bool shell_collect_glob(const char *arg, char matches[][STORAGE_PATH_MAX],
+                               size_t match_cap, size_t *match_count)
+{
+    char dir_arg[STORAGE_PATH_MAX];
+    char pattern[STORAGE_PATH_MAX];
+    char dir_path[STORAGE_PATH_MAX];
+
+    if (!match_count ||
+        !shell_split_pattern(arg, dir_arg, sizeof(dir_arg), pattern, sizeof(pattern)) ||
+        !storage_resolve_workspace_path(g_workspace_cwd, dir_arg, dir_path, sizeof(dir_path))) {
+        return false;
+    }
+
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        return false;
+    }
+
+    *match_count = 0;
+    bool overflow = false;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (!shell_glob_match(pattern, entry->d_name)) {
+            continue;
+        }
+        if (*match_count >= match_cap) {
+            overflow = true;
+            break;
+        }
+        if (strcmp(dir_path, STORAGE_WORKSPACE_MOUNT_POINT) == 0) {
+            if (snprintf(matches[*match_count], STORAGE_PATH_MAX, "%s/%s",
+                         STORAGE_WORKSPACE_MOUNT_POINT, entry->d_name) >= STORAGE_PATH_MAX) {
+                overflow = true;
+                break;
+            }
+        } else if (snprintf(matches[*match_count], STORAGE_PATH_MAX, "%s/%s",
+                            dir_path, entry->d_name) >= STORAGE_PATH_MAX) {
+            overflow = true;
+            break;
+        }
+        (*match_count)++;
+    }
+    closedir(dir);
+
+    return !overflow;
 }
 
 static void shell_puts(const char *text)
@@ -304,6 +428,27 @@ static void shell_ls(const char *path)
 {
     char resolved[STORAGE_PATH_MAX];
     const char *arg = skip_ws(path);
+    if (shell_has_wildcard(arg)) {
+        size_t match_count = 0;
+        if (!shell_collect_glob(arg, g_glob_matches, SHELL_GLOB_MATCH_MAX, &match_count)) {
+            shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+            return;
+        }
+        if (match_count == 0) {
+            shell_error("No match", SHELL_STATUS_NOT_FOUND);
+            return;
+        }
+        for (size_t i = 0; i < match_count; ++i) {
+            const char *name = path_basename(g_glob_matches[i]);
+            if (path_is_dir(g_glob_matches[i])) {
+                shell_puts("/");
+            }
+            shell_puts(name);
+            shell_puts("\r\n");
+        }
+        return;
+    }
+
     if (!storage_resolve_workspace_path(g_workspace_cwd, arg, resolved, sizeof(resolved))) {
         shell_error("Bad path", SHELL_STATUS_BAD_PATH);
         return;
@@ -391,7 +536,28 @@ static void shell_rmdir(const char *path)
 static void shell_cat(const char *path)
 {
     char resolved[STORAGE_PATH_MAX];
-    if (!resolve_workspace_arg(path, resolved, sizeof(resolved))) {
+    const char *arg = skip_ws(path);
+    if (shell_has_wildcard(arg)) {
+        size_t match_count = 0;
+        if (!shell_collect_glob(arg, g_glob_matches, SHELL_GLOB_MATCH_MAX, &match_count)) {
+            shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+            return;
+        }
+        if (match_count == 0) {
+            shell_error("No match", SHELL_STATUS_NOT_FOUND);
+            return;
+        }
+        for (size_t i = 0; i < match_count; ++i) {
+            if (path_is_dir(g_glob_matches[i])) {
+                shell_error("Is directory", SHELL_STATUS_IS_DIRECTORY);
+                return;
+            }
+            shell_cat(g_glob_matches[i] + strlen(STORAGE_WORKSPACE_MOUNT_POINT));
+        }
+        return;
+    }
+
+    if (!resolve_workspace_arg(arg, resolved, sizeof(resolved))) {
         shell_error("Bad path", SHELL_STATUS_BAD_PATH);
         return;
     }
@@ -533,8 +699,46 @@ static void shell_rm(char *args)
         path = next_token(&cursor);
     }
 
+    if (!path) {
+        shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+        return;
+    }
+
+    if (shell_has_wildcard(path)) {
+        size_t match_count = 0;
+        if (!shell_collect_glob(path, g_glob_matches, SHELL_GLOB_MATCH_MAX, &match_count)) {
+            shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+            return;
+        }
+        if (match_count == 0) {
+            shell_error("No match", SHELL_STATUS_NOT_FOUND);
+            return;
+        }
+
+        for (size_t i = 0; i < match_count; ++i) {
+            if (!workspace_child_path(g_glob_matches[i])) {
+                shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+                return;
+            }
+            if (!recursive && path_is_dir(g_glob_matches[i])) {
+                shell_error("Is directory", SHELL_STATUS_IS_DIRECTORY);
+                return;
+            }
+        }
+
+        for (size_t i = 0; i < match_count; ++i) {
+            bool ok = recursive ? remove_tree(g_glob_matches[i]) : (remove(g_glob_matches[i]) == 0);
+            if (!ok) {
+                shell_error("RM failed", SHELL_STATUS_IO_ERROR);
+                return;
+            }
+        }
+        shell_ok();
+        return;
+    }
+
     char resolved[STORAGE_PATH_MAX];
-    if (!path || !resolve_workspace_arg(path, resolved, sizeof(resolved)) || !workspace_child_path(resolved)) {
+    if (!resolve_workspace_arg(path, resolved, sizeof(resolved)) || !workspace_child_path(resolved)) {
         shell_error("Bad path", SHELL_STATUS_BAD_PATH);
         return;
     }
@@ -569,59 +773,19 @@ static bool parse_two_paths(char *args, char **src, char **dst)
     return *src && *dst;
 }
 
-static bool resolve_file_pair(char *args, char *src_path, size_t src_size, char *dst_path, size_t dst_size)
+static bool copy_file_path(const char *src_path, const char *dst_path)
 {
-    char *src;
-    char *dst;
-    if (!parse_two_paths(args, &src, &dst)) {
-        shell_error("Bad input", SHELL_STATUS_BAD_INPUT);
-        return false;
-    }
-
-    if (!resolve_workspace_arg(src, src_path, src_size) ||
-        !resolve_workspace_arg(dst, dst_path, dst_size)) {
-        shell_error("Bad path", SHELL_STATUS_BAD_PATH);
-        return false;
-    }
-
-    struct stat st;
-    if (stat(src_path, &st) != 0) {
-        shell_error("Open failed", SHELL_STATUS_NOT_FOUND);
-        return false;
-    }
-
-    if (S_ISDIR(st.st_mode) || path_is_dir(dst_path)) {
-        shell_error("Is directory", SHELL_STATUS_IS_DIRECTORY);
-        return false;
-    }
-
-    if (stat(dst_path, &st) == 0) {
-        shell_error("Exists", SHELL_STATUS_EXISTS);
-        return false;
-    }
-
-    return true;
-}
-
-static void shell_copy(char *args)
-{
-    char src_path[STORAGE_PATH_MAX];
-    char dst_path[STORAGE_PATH_MAX];
-    if (!resolve_file_pair(args, src_path, sizeof(src_path), dst_path, sizeof(dst_path))) {
-        return;
-    }
-
     FILE *src = fopen(src_path, "r");
     if (!src) {
         shell_error("Open failed", SHELL_STATUS_NOT_FOUND);
-        return;
+        return false;
     }
 
     FILE *dst = fopen(dst_path, "w");
     if (!dst) {
         fclose(src);
         shell_error("CP failed", SHELL_STATUS_IO_ERROR);
-        return;
+        return false;
     }
 
     char buf[FILE_IO_BUF];
@@ -645,6 +809,103 @@ static void shell_copy(char *args)
     if (!ok) {
         remove(dst_path);
         shell_error("CP failed", SHELL_STATUS_IO_ERROR);
+        return false;
+    }
+
+    return true;
+}
+
+static bool resolve_wildcard_destination(const char *dst, char *dst_dir, size_t dst_dir_size)
+{
+    if (!dst || shell_has_wildcard(dst) ||
+        !resolve_workspace_arg(dst, dst_dir, dst_dir_size) ||
+        !workspace_child_path(dst_dir) ||
+        !path_is_dir(dst_dir)) {
+        shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+        return false;
+    }
+    return true;
+}
+
+static void shell_copy(char *args)
+{
+    char *src_arg;
+    char *dst_arg;
+    if (!parse_two_paths(args, &src_arg, &dst_arg)) {
+        shell_error("Bad input", SHELL_STATUS_BAD_INPUT);
+        return;
+    }
+
+    if (shell_has_wildcard(src_arg)) {
+        size_t match_count = 0;
+        char dst_dir[STORAGE_PATH_MAX];
+        if (!shell_collect_glob(src_arg, g_glob_matches, SHELL_GLOB_MATCH_MAX, &match_count)) {
+            shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+            return;
+        }
+        if (match_count == 0) {
+            shell_error("No match", SHELL_STATUS_NOT_FOUND);
+            return;
+        }
+        if (!resolve_wildcard_destination(dst_arg, dst_dir, sizeof(dst_dir))) {
+            return;
+        }
+
+        for (size_t i = 0; i < match_count; ++i) {
+            char dst_path[STORAGE_PATH_MAX];
+            if (path_is_dir(g_glob_matches[i])) {
+                shell_error("Is directory", SHELL_STATUS_IS_DIRECTORY);
+                return;
+            }
+            if (snprintf(dst_path, sizeof(dst_path), "%s/%s", dst_dir,
+                         path_basename(g_glob_matches[i])) >= STORAGE_PATH_MAX) {
+                shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+                return;
+            }
+            struct stat st;
+            if (stat(dst_path, &st) == 0) {
+                shell_error("Exists", SHELL_STATUS_EXISTS);
+                return;
+            }
+        }
+
+        for (size_t i = 0; i < match_count; ++i) {
+            char dst_path[STORAGE_PATH_MAX];
+            if (snprintf(dst_path, sizeof(dst_path), "%s/%s", dst_dir,
+                         path_basename(g_glob_matches[i])) >= STORAGE_PATH_MAX ||
+                !copy_file_path(g_glob_matches[i], dst_path)) {
+                return;
+            }
+        }
+        shell_ok();
+        return;
+    }
+
+    char src_path[STORAGE_PATH_MAX];
+    char dst_path[STORAGE_PATH_MAX];
+    if (!resolve_workspace_arg(src_arg, src_path, sizeof(src_path)) ||
+        !resolve_workspace_arg(dst_arg, dst_path, sizeof(dst_path))) {
+        shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+        return;
+    }
+
+    struct stat st;
+    if (stat(src_path, &st) != 0) {
+        shell_error("Open failed", SHELL_STATUS_NOT_FOUND);
+        return;
+    }
+
+    if (S_ISDIR(st.st_mode) || path_is_dir(dst_path)) {
+        shell_error("Is directory", SHELL_STATUS_IS_DIRECTORY);
+        return;
+    }
+
+    if (stat(dst_path, &st) == 0) {
+        shell_error("Exists", SHELL_STATUS_EXISTS);
+        return;
+    }
+
+    if (!copy_file_path(src_path, dst_path)) {
         return;
     }
 
@@ -660,6 +921,52 @@ static void shell_move(char *args)
 
     if (!parse_two_paths(args, &src, &dst)) {
         shell_error("Bad input", SHELL_STATUS_BAD_INPUT);
+        return;
+    }
+
+    if (shell_has_wildcard(src)) {
+        size_t match_count = 0;
+        char dst_dir[STORAGE_PATH_MAX];
+        if (!shell_collect_glob(src, g_glob_matches, SHELL_GLOB_MATCH_MAX, &match_count)) {
+            shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+            return;
+        }
+        if (match_count == 0) {
+            shell_error("No match", SHELL_STATUS_NOT_FOUND);
+            return;
+        }
+        if (!resolve_wildcard_destination(dst, dst_dir, sizeof(dst_dir))) {
+            return;
+        }
+
+        for (size_t i = 0; i < match_count; ++i) {
+            char dst_path[STORAGE_PATH_MAX];
+            if (path_is_dir(g_glob_matches[i])) {
+                shell_error("Is directory", SHELL_STATUS_IS_DIRECTORY);
+                return;
+            }
+            if (snprintf(dst_path, sizeof(dst_path), "%s/%s", dst_dir,
+                         path_basename(g_glob_matches[i])) >= STORAGE_PATH_MAX) {
+                shell_error("Bad path", SHELL_STATUS_BAD_PATH);
+                return;
+            }
+            struct stat st;
+            if (stat(dst_path, &st) == 0) {
+                shell_error("Exists", SHELL_STATUS_EXISTS);
+                return;
+            }
+        }
+
+        for (size_t i = 0; i < match_count; ++i) {
+            char dst_path[STORAGE_PATH_MAX];
+            if (snprintf(dst_path, sizeof(dst_path), "%s/%s", dst_dir,
+                         path_basename(g_glob_matches[i])) >= STORAGE_PATH_MAX ||
+                rename(g_glob_matches[i], dst_path) != 0) {
+                shell_error("MV failed", SHELL_STATUS_IO_ERROR);
+                return;
+            }
+        }
+        shell_ok();
         return;
     }
 

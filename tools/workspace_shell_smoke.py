@@ -115,9 +115,36 @@ def main(argv: list[str]) -> int:
         print_block("WRITE note.txt", result.response)
         require_ok(result, "WRITE note.txt")
 
+        result = session.command("WRITE demo.bas 10 PRINT WILDCARD", args.timeout)
+        print_block("WRITE demo.bas", result.response)
+        require_ok(result, "WRITE demo.bas")
+
+        result = session.command("WRITE xx.txt wildcard-text", args.timeout)
+        print_block("WRITE xx.txt", result.response)
+        require_ok(result, "WRITE xx.txt")
+
+        result = session.command("WRITE xx.bas wildcard-basic", args.timeout)
+        print_block("WRITE xx.bas", result.response)
+        require_ok(result, "WRITE xx.bas")
+
         result = session.command("CAT note.txt", args.timeout)
         print_block("CAT note.txt", result.raw)
         require("hello-from-c3" in result.raw, "CAT did not print written text")
+
+        result = session.command("LS *.*", args.timeout)
+        print_block("LS *.*", result.raw)
+        for filename in ("note.txt", "demo.bas", "xx.txt", "xx.bas"):
+            require(filename in result.raw, f"LS *.* missing {filename}")
+
+        result = session.command("LS *.bas", args.timeout)
+        print_block("LS *.bas", result.raw)
+        require("demo.bas" in result.raw and "xx.bas" in result.raw, "LS *.bas missing .bas files")
+        require("note.txt" not in result.raw and "xx.txt" not in result.raw, "LS *.bas included non-bas files")
+
+        result = session.command("CAT xx.*", args.timeout)
+        print_block("CAT xx.*", result.raw)
+        require("wildcard-text" in result.raw, "CAT xx.* missing txt file content")
+        require("wildcard-basic" in result.raw, "CAT xx.* missing bas file content")
 
         result = session.command("MKDIR empty-dir", args.timeout)
         print_block("MKDIR empty-dir", result.response)
@@ -135,6 +162,22 @@ def main(argv: list[str]) -> int:
         print_block("CP note.txt alias.txt", result.response)
         require_ok(result, "CP note.txt alias.txt")
 
+        result = session.command("MKDIR copies", args.timeout)
+        print_block("MKDIR copies", result.response)
+        require_ok(result, "MKDIR copies")
+
+        result = session.command("CP *.bas copies", args.timeout)
+        print_block("CP *.bas copies", result.response)
+        require_ok(result, "CP *.bas copies")
+
+        result = session.command("CAT copies/demo.bas", args.timeout)
+        print_block("CAT copies/demo.bas", result.raw)
+        require("10 PRINT WILDCARD" in result.raw, "CP *.bas did not copy demo.bas")
+
+        result = session.command("CAT copies/xx.bas", args.timeout)
+        print_block("CAT copies/xx.bas", result.raw)
+        require("wildcard-basic" in result.raw, "CP *.bas did not copy xx.bas")
+
         result = session.command("MV copy.txt moved.txt", args.timeout)
         print_block("MV copy.txt moved.txt", result.response)
         require_ok(result, "MV copy.txt moved.txt")
@@ -142,6 +185,22 @@ def main(argv: list[str]) -> int:
         result = session.command("MV alias.txt alias-moved.txt", args.timeout)
         print_block("MV alias.txt alias-moved.txt", result.response)
         require_ok(result, "MV alias.txt alias-moved.txt")
+
+        result = session.command("MKDIR moved-wildcards", args.timeout)
+        print_block("MKDIR moved-wildcards", result.response)
+        require_ok(result, "MKDIR moved-wildcards")
+
+        result = session.command("MV xx.* moved-wildcards", args.timeout)
+        print_block("MV xx.* moved-wildcards", result.response)
+        require_ok(result, "MV xx.* moved-wildcards")
+
+        result = session.command("CAT moved-wildcards/xx.txt", args.timeout)
+        print_block("CAT moved-wildcards/xx.txt", result.raw)
+        require("wildcard-text" in result.raw, "MV xx.* did not move xx.txt")
+
+        result = session.command("CAT moved-wildcards/xx.bas", args.timeout)
+        print_block("CAT moved-wildcards/xx.bas", result.raw)
+        require("wildcard-basic" in result.raw, "MV xx.* did not move xx.bas")
 
         result = session.command("MKDIR move-dir", args.timeout)
         print_block("MKDIR move-dir", result.response)
@@ -194,6 +253,22 @@ def main(argv: list[str]) -> int:
         result = session.command("RM -R moved-dir", args.timeout)
         print_block("RM -R moved-dir", result.response)
         require_ok(result, "RM -R moved-dir")
+
+        result = session.command("RM -R copies", args.timeout)
+        print_block("RM -R copies", result.response)
+        require_ok(result, "RM -R copies")
+
+        result = session.command("RM -R moved-wildcards", args.timeout)
+        print_block("RM -R moved-wildcards", result.response)
+        require_ok(result, "RM -R moved-wildcards")
+
+        result = session.command("RM *.bas", args.timeout)
+        print_block("RM *.bas", result.response)
+        require_ok(result, "RM *.bas")
+
+        result = session.command("LS *.bas", args.timeout)
+        print_block("LS *.bas after RM", result.response)
+        require("No match" in result.response, "RM *.bas left .bas files behind")
 
         for filename in ("note.txt", "moved.txt", "alias-moved.txt"):
             result = session.command(f"RM {filename}", args.timeout)
