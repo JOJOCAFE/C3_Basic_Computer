@@ -43,43 +43,61 @@ Date: 2026-06-27
   `python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0`.
 - Main task stack default is now 8192 bytes so wildcard file operations have
   enough stack headroom on ESP32-C3.
+- Sprint 010 T10-T2 terminal helper layer is implemented in `source/terminal`
+  with callback-based output and exact ANSI/VT100 escape mappings.
+- Sprint 010 T10-T3 `/bin/term` service is implemented and registered in
+  `/bin list`.
+- Focused board verification passed on `/dev/ttyACM0` for `/bin/term clear`,
+  `home`, `goto`, `color`, `reset`, `hide-cursor`, `show-cursor`, bad color
+  rejection, `/bin list` containing `/bin/term`, and `HELP` not listing
+  `/bin/term`.
 
 ## Latest Commits
 
-- Current `HEAD` Add shell wildcard file commands
+- `79d3f0b` Start Sprint 010 terminal service docs
+- `bf117aa` Add shell wildcard file commands
 - `9427712` Plan terminal service for BASIC text UI
 - `e92cfca` Add shell YMODEM transfer and C3COM runner
 - `f7b5f5d` Update final session status
-- `9a8a51e` Remove legacy tree and update Sprint 1 docs
 
 ## Current Branch State
 
 - Branch: `main`
 - Tracks `origin/main`.
-- Current wildcard changes are committed locally and ready to push.
+- Current Sprint 010 `/bin/term` changes are ready to commit after review.
 
 ## Known Unstaged Local Changes
 
-- None expected after the wildcard test commit is amended.
+- Sprint 010 T10-T2/T10-T3 implementation, docs, and this handoff update.
 
 ## Board Verification
 
 - Latest board-tested commands:
   ```bash
   tools/idf53.sh -B build-c3-root -p /dev/ttyACM0 flash
-  python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
   ```
+- Latest focused `/bin/term` smoke checks:
+  - `/bin list` includes `/bin/term`.
+  - `HELP` does not include `/bin/term`.
+  - `/bin/term clear` emits `ESC[2J ESC[H`.
+  - `/bin/term home` emits `ESC[H`.
+  - `/bin/term goto -r 3 -c 4` emits `ESC[3;4H`.
+  - `/bin/term color -f 2` emits `ESC[32m`.
+  - `/bin/term color -f 2 -b 4` emits `ESC[32;44m`.
+  - `/bin/term reset` emits `ESC[0m`.
+  - `/bin/term hide-cursor` emits `ESC[?25l`.
+  - `/bin/term show-cursor` emits `ESC[?25h`.
+  - `/bin/term color -f 8` returns `Bad argument`.
 
 ## Recommended Next Start
 
-1. Push the local wildcard shell commit if remote sync is desired.
-2. Start Sprint 010 from
-   `docs/SPRINT_010_TERMINAL_SERVICE_AND_BASIC_TERM.md`.
-3. Implement `/bin/term` as an output-only ANSI/VT100 terminal service.
-4. Add BASIC `TERM "..."` as a safe bridge to `/bin/term`.
-5. Then resume Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
-6. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
-7. Resume ASM capture as a non-execution milestone after ASM editor mode is
+1. Commit and push Sprint 010 T10-T2/T10-T3 if the current diff is accepted.
+2. Continue with Sprint 010 T10-T4: add BASIC `TERM "..."` as a safe bridge to
+   `/bin/term` using a new service kind, not unrestricted shell execution.
+3. Add terminal example and formal smoke script in T10-T5/T10-T6.
+4. Then resume Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
+5. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
+6. Resume ASM capture as a non-execution milestone after ASM editor mode is
    stable and board-tested.
 
 Keep Going.

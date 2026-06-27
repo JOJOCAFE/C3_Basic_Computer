@@ -33,7 +33,7 @@ EDIT /data/note.txt
 HARDWARE gpio read -p <gpio>
 ```
 
-Planned terminal-facing service:
+Current terminal-facing terminal-control service:
 
 ```text
 /bin/term clear
@@ -43,15 +43,20 @@ Planned terminal-facing service:
 /bin/term reset
 /bin/term hide-cursor
 /bin/term show-cursor
+```
+
+`/bin/term` is a firmware-linked `/bin` service, not a shell built-in, and must
+not appear in shell `HELP`. It is an output-only ANSI/VT100 helper for fixed
+escape sequences. It is not curses/ncurses, not raw-key input, not mouse input,
+and not a terminal capability database. BASIC `TERM "..."` is planned as a safe
+bridge only to the `/bin/term` command family.
+
+Planned BASIC bridge:
+
+```basic
 TERM "clear"
 TERM "goto -r 5 -c 10"
 ```
-
-`/bin/term` is planned as a firmware-linked `/bin` service, not a shell
-built-in, and must not appear in shell `HELP`. It is an output-only ANSI/VT100
-helper for fixed escape sequences. It is not curses/ncurses, not raw-key input,
-not mouse input, and not a terminal capability database. BASIC `TERM "..."` is
-planned as a safe bridge only to the `/bin/term` command family.
 
 ## Nano Editor Service
 

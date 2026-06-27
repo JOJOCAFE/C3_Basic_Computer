@@ -211,9 +211,9 @@ Current limits and behavior:
 Hardware terminal commands are `/bin` services above the shell. They are not
 shell built-ins and do not appear in `HELP`.
 
-The planned `/bin/term` service is also a `/bin` service, not a shell built-in,
-and must not appear in `HELP`. It will provide output-only ANSI/VT100 helpers:
-`clear`, `home`, `goto`, `color`, `reset`, `hide-cursor`, and `show-cursor`.
+The `/bin/term` service is also a `/bin` service, not a shell built-in, and
+must not appear in `HELP`. It provides output-only ANSI/VT100 helpers: `clear`,
+`home`, `goto`, `color`, `reset`, `hide-cursor`, and `show-cursor`.
 
 Current hardware services:
 

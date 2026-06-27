@@ -1,6 +1,6 @@
 # Sprint 010 Task List: Terminal Service and BASIC TERM
 
-Status: In progress; T10-T1 docs contract frozen.
+Status: In progress; T10-T1 through T10-T3 implemented and board-smoked.
 
 Goal: add a small terminal-control service so BASIC programs can build simple
 text UIs without embedding ANSI escape strings directly. This is not a curses
@@ -80,9 +80,9 @@ ncurses in this sprint.
 
 ### T10-T2 - Add terminal helper layer
 
-- [ ] Add `source/terminal/`.
-- [ ] Add `terminal.h` and `terminal.c`.
-- [ ] Implement:
+- [x] Add `source/terminal/`.
+- [x] Add `terminal.h` and `terminal.c`.
+- [x] Implement:
   - `terminal_clear()`
   - `terminal_home()`
   - `terminal_goto(row, col)`
@@ -90,20 +90,20 @@ ncurses in this sprint.
   - `terminal_reset()`
   - `terminal_hide_cursor()`
   - `terminal_show_cursor()`
-- [ ] Use a provided write callback so the layer can write to shell/BASIC I/O.
-- [ ] Keep all output ASCII escape sequences.
-- [ ] Use the exact ANSI/VT100 mapping in this task document.
-- [ ] Pass criteria:
+- [x] Use a provided write callback so the layer can write to shell/BASIC I/O.
+- [x] Keep all output ASCII escape sequences.
+- [x] Use the exact ANSI/VT100 mapping in this task document.
+- [x] Pass criteria:
   - Helper layer compiles in root firmware.
   - No direct USB Serial/JTAG dependency inside the helper layer.
 
 ### T10-T3 - Add `/bin/term` service
 
-- [ ] Add `source/bin/bin_term.c`.
-- [ ] Update `source/bin/c3_bin_sources.cmake`.
-- [ ] Update `source/bin/bin_internal.h`.
-- [ ] Register service in `source/bin/bin_registry.c`.
-- [ ] Implement argument parsing for:
+- [x] Add `source/bin/bin_term.c`.
+- [x] Update `source/bin/c3_bin_sources.cmake`.
+- [x] Update `source/bin/bin_internal.h`.
+- [x] Register service in `source/bin/bin_registry.c`.
+- [x] Implement argument parsing for:
   - `clear`
   - `home`
   - `goto -r <row> -c <col>`
@@ -111,9 +111,9 @@ ncurses in this sprint.
   - `reset`
   - `hide-cursor`
   - `show-cursor`
-- [ ] Reject bad rows, columns, colors, unknown flags, and extra args with a
+- [x] Reject bad rows, columns, colors, unknown flags, and extra args with a
   clear usage or `Bad argument` message.
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - `/bin/term clear` clears a compatible terminal.
   - `/bin/term goto -r 5 -c 10` positions following output.
   - `/bin/term color -f 2` changes following text color.

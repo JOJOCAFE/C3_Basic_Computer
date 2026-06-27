@@ -13,6 +13,10 @@
 #define CONFIG_C3_SERVICE_NANO 1
 #endif
 
+#ifndef CONFIG_C3_SERVICE_TERM
+#define CONFIG_C3_SERVICE_TERM 1
+#endif
+
 static const char *const hardware_aliases[] = {
     "/bin/hardware",
     "bin/hardware",
@@ -27,6 +31,11 @@ static const char *const nano_aliases[] = {
 
 static const char *const basic_aliases[] = {
     "BASIC",
+};
+
+static const char *const term_aliases[] = {
+    "/bin/term",
+    "bin/term",
 };
 
 static const bin_service_t g_services[] = {
@@ -52,6 +61,15 @@ static const bin_service_t g_services[] = {
         .aliases = basic_aliases,
         .alias_count = sizeof(basic_aliases) / sizeof(basic_aliases[0]),
         .exec = bin_basic_exec,
+        .removable = true,
+    },
+#endif
+#if CONFIG_C3_SERVICE_TERM
+    {
+        .name = "term",
+        .aliases = term_aliases,
+        .alias_count = sizeof(term_aliases) / sizeof(term_aliases[0]),
+        .exec = bin_term_exec,
         .removable = true,
     },
 #endif

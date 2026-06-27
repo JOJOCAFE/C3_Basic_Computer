@@ -12,6 +12,7 @@ set(C3_BIN_SRCS
     "${C3_BIN_DIR}/bin_hardware_i2c.c"
     "${C3_BIN_DIR}/bin_hardware_spi.c"
     "${C3_BIN_DIR}/bin_nano.c"
+    "${C3_BIN_DIR}/bin_term.c"
 )
 
 set(C3_BIN_INCLUDE_DIRS

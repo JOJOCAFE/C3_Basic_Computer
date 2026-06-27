@@ -309,7 +309,7 @@ deferred until it has a stack-safe adapter. The bridge blocks destructive or
 protected commands such as `RENEW`, `RM`, `RM -R`, `WRITE`, `CP`, `MV`, and
 native C3COM execution. `ASM <path>` remains a planned shell front end to nano.
 
-Planned `/bin/term` terminal service:
+Current `/bin/term` terminal service:
 
 ```text
 /bin/term clear
@@ -319,14 +319,10 @@ Planned `/bin/term` terminal service:
 /bin/term reset
 /bin/term hide-cursor
 /bin/term show-cursor
-TERM "clear"
-TERM "goto -r 5 -c 10"
-TERM "color -f 2"
-TERM "reset"
 ```
 
-`/bin/term` is a planned `/bin` service, not a shell built-in, and must not be
-listed by `HELP`. It is an output-only ANSI/VT100 helper for fixed escape
+`/bin/term` is a `/bin` service, not a shell built-in, and must not be listed
+by `HELP`. It is an output-only ANSI/VT100 helper for fixed escape
 sequences: clear screen, home, cursor position, foreground/background colors,
 reset, and cursor visibility. It is not curses or ncurses, does not read raw
 keys, does not use mouse input, and does not manage an alternate screen or
