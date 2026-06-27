@@ -1,6 +1,6 @@
 # Sprint 010 Task List: Terminal Service and BASIC TERM
 
-Status: Planned
+Status: In progress; T10-T1 docs contract frozen.
 
 Goal: add a small terminal-control service so BASIC programs can build simple
 text UIs without embedding ANSI escape strings directly. This is not a curses
@@ -64,15 +64,17 @@ ncurses in this sprint.
 
 ### T10-T1 - Freeze terminal service contract
 
-- [ ] Update:
+- [x] Update:
   - `README.md`
   - `docs/04_Shell_Reference.md`
   - `docs/06_BASIC_Language.md`
-  - `source/hardware/README.md` only if cross-references are needed
-- [ ] Document `/bin/term` as a `/bin` service, not a shell built-in.
-- [ ] Document BASIC `TERM "..."` as a safe output-only service bridge.
-- [ ] Document that this is ANSI/VT100 helper behavior, not curses/ncurses.
-- [ ] Pass criteria:
+  - `source/bin/README.md`
+  - `source/hardware/README.md` not changed; no hardware cross-reference is
+    needed for this terminal service.
+- [x] Document `/bin/term` as a `/bin` service, not a shell built-in.
+- [x] Document BASIC `TERM "..."` as a safe output-only service bridge.
+- [x] Document that this is ANSI/VT100 helper behavior, not curses/ncurses.
+- [x] Pass criteria:
   - Docs do not claim raw keyboard or curses support.
   - Docs explain that `HELP` should not list `/bin/term`.
 

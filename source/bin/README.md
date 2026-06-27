@@ -33,6 +33,26 @@ EDIT /data/note.txt
 HARDWARE gpio read -p <gpio>
 ```
 
+Planned terminal-facing service:
+
+```text
+/bin/term clear
+/bin/term home
+/bin/term goto -r <row> -c <col>
+/bin/term color -f <0-7> [-b <0-7>]
+/bin/term reset
+/bin/term hide-cursor
+/bin/term show-cursor
+TERM "clear"
+TERM "goto -r 5 -c 10"
+```
+
+`/bin/term` is planned as a firmware-linked `/bin` service, not a shell
+built-in, and must not appear in shell `HELP`. It is an output-only ANSI/VT100
+helper for fixed escape sequences. It is not curses/ncurses, not raw-key input,
+not mouse input, and not a terminal capability database. BASIC `TERM "..."` is
+planned as a safe bridge only to the `/bin/term` command family.
+
 ## Nano Editor Service
 
 `/bin/nano` is a firmware-linked line editor service. `EDIT` is the shell alias
@@ -57,9 +77,10 @@ runs the current numbered BASIC buffer using the full 64 KiB nano text buffer.
 `:debug` saves and step-runs the current numbered BASIC buffer. BASIC
 shell/hardware calls use a safe whitelist: `SHELL "PWD"`, `SHELL "CAT <file>"`,
 `HARDWARE "gpio read -p <pin>"`, and `HARDWARE "adc read -p <pin>"`.
-Directory listing from BASIC is deferred until it has a stack-safe adapter.
-Destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and native
-execution stay blocked.
+Planned BASIC terminal calls use `TERM "..."` as an output-only bridge to
+`/bin/term`. Directory listing from BASIC is deferred until it has a stack-safe
+adapter. Destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and
+native execution stay blocked.
 
 Preferred BASIC hardware access is typed and bypasses `/bin/hardware`:
 

@@ -163,9 +163,12 @@ modern unnumbered BASIC are deferred.
 
 BASIC service calls are limited to explicitly whitelisted safe operations:
 `SHELL "PWD"`, `SHELL "CAT <file>"`, `HARDWARE "gpio read -p <pin>"`, and
-`HARDWARE "adc read -p <pin>"`. Directory listing from BASIC is deferred until
-it has a stack-safe adapter. Destructive commands such as `RENEW`, `RM`,
-`WRITE`, `CP`, `MV`, and native execution stay blocked.
+`HARDWARE "adc read -p <pin>"`. Planned terminal UI calls use `TERM "..."` as
+a safe output-only bridge to `/bin/term`; it emits fixed ANSI/VT100 helper
+sequences and is not curses, ncurses, raw-key input, or general shell
+execution. Directory listing from BASIC is deferred until it has a stack-safe
+adapter. Destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and
+native execution stay blocked.
 
 Preferred BASIC hardware access is typed and calls `source/hardware` directly:
 
@@ -207,6 +210,10 @@ Current limits and behavior:
 
 Hardware terminal commands are `/bin` services above the shell. They are not
 shell built-ins and do not appear in `HELP`.
+
+The planned `/bin/term` service is also a `/bin` service, not a shell built-in,
+and must not appear in `HELP`. It will provide output-only ANSI/VT100 helpers:
+`clear`, `home`, `goto`, `color`, `reset`, `hide-cursor`, and `show-cursor`.
 
 Current hardware services:
 

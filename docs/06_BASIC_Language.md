@@ -120,7 +120,16 @@ SHELL "PWD"
 SHELL "CAT /data/note.txt"
 HARDWARE "gpio read -p 8"
 HARDWARE "adc read -p 0"
+TERM "clear"
+TERM "goto -r 5 -c 10"
+TERM "color -f 2"
+TERM "reset"
 ```
+
+`TERM "..."` is planned as a safe output-only bridge to `/bin/term`. It is for
+fixed ANSI/VT100 helper operations only: clear, home, goto, color, reset, hide
+cursor, and show cursor. It is not raw ANSI string output, not curses/ncurses,
+and not general shell execution.
 
 Typed hardware statements:
 
