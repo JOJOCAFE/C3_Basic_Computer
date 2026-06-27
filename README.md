@@ -125,10 +125,11 @@ Later workspace/system/monitor targets:
 `ASM`, `VERSION`, `MEMORY`, `DATE`, `TIME`, `DIAGNOSTICS`, `REG`, `MEM`,
 `DUMP`, `DISASM`, `STEP`, `BREAK`
 
-`EDIT <path>` is the text editor command backed by `/bin/nano`.
-`BASIC <path>` dispatches to the same editor service with the BASIC plugin
-selected. Future `ASM <path>` should dispatch to nano with the ASM plugin
-selected.
+`EDIT [path]` is the text editor command backed by `/bin/nano`.
+`BASIC [path]` dispatches to the same editor service with the BASIC plugin
+selected. Without a path, `EDIT` and `/bin/nano` open an untitled text buffer
+and `BASIC` opens an untitled BASIC buffer. Future `ASM <path>` should dispatch
+to nano with the ASM plugin selected.
 Linked services can be listed with `/bin list`.
 
 Only implemented commands should appear in firmware `HELP`.
@@ -141,12 +142,15 @@ alias or the canonical `/bin` service path:
 ```text
 EDIT /data/note.txt
 /bin/nano /data/note.txt
+EDIT
+/bin/nano
 ```
 
 BASIC source opens through the same nano editor service in BASIC mode:
 
 ```text
 BASIC /basic/hello.bas
+BASIC
 ```
 
 Current BASIC editor mode accepts `/basic/*.bas`, validates numbered BASIC lines
@@ -163,12 +167,12 @@ modern unnumbered BASIC are deferred.
 
 BASIC service calls are limited to explicitly whitelisted safe operations:
 `SHELL "PWD"`, `SHELL "CAT <file>"`, `HARDWARE "gpio read -p <pin>"`, and
-`HARDWARE "adc read -p <pin>"`. Planned terminal UI calls use `TERM "..."` as
-a safe output-only bridge to `/bin/term`; it emits fixed ANSI/VT100 helper
-sequences and is not curses, ncurses, raw-key input, or general shell
-execution. Directory listing from BASIC is deferred until it has a stack-safe
-adapter. Destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and
-native execution stay blocked.
+`HARDWARE "adc read -p <pin>"`. Terminal UI calls use `TERM "..."` as a safe
+output-only bridge to `/bin/term`; it emits fixed ANSI/VT100 helper sequences
+and is not curses, ncurses, raw-key input, or general shell execution.
+Directory listing from BASIC is deferred until it has a stack-safe adapter.
+Destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and native
+execution stay blocked.
 
 Preferred BASIC hardware access is typed and calls `source/hardware` directly:
 
@@ -199,6 +203,12 @@ Current limits and behavior:
 
 - `EDIT` edits `/data/*.txt` only.
 - `BASIC` edits `/basic/*.bas` only.
+- No-path `EDIT` and `/bin/nano` save untitled buffers to the first free
+  `/data/untitled-N.txt`.
+- No-path `BASIC` saves untitled buffers to the first free
+  `/basic/untitled-N.bas`.
+- `:q` exits a clean untitled buffer without creating a file; dirty untitled
+  buffers require `:w`, `:wq`, or `:q!`.
 - Text buffer is 64 KiB per open file, including line separators.
 - Input line buffer is 64 KiB, bounded by the same editor capacity.
 - Allocation failure prints `Out of memory` and returns to the shell.
@@ -271,6 +281,8 @@ Completed and board-checked:
 3. **Nano editor and BASIC mode**
    - `EDIT /data/name.txt` and `/bin/nano /data/name.txt` edit text.
    - `BASIC /basic/name.bas` opens nano in BASIC mode.
+   - No-path `EDIT`, `/bin/nano`, and `BASIC` open untitled buffers and save to
+     the first free `untitled-N` file in the correct workspace folder.
    - `:run` and `:debug` run or step the current numbered BASIC buffer.
    - Editor and BASIC source buffers use the 64 KiB nano buffer.
 
@@ -278,7 +290,8 @@ Completed and board-checked:
    - Numbered-line tiny BASIC with integer expressions, single-letter variables,
      core control flow, and structured validation errors.
    - Safe BASIC service calls: `SHELL "PWD"`, `SHELL "CAT <file>"`,
-     `HARDWARE "gpio read -p <pin>"`, and `HARDWARE "adc read -p <pin>"`.
+     `HARDWARE "gpio read -p <pin>"`, `HARDWARE "adc read -p <pin>"`, and
+     `TERM "..."` for the `/bin/term` command family.
    - Typed BASIC GPIO/ADC commands call `source/hardware` directly.
 
 5. **Hardware services**
@@ -302,16 +315,13 @@ Completed and board-checked:
 
 Recommended next implementation:
 
-1. Start Sprint 010: [`docs/SPRINT_010_TERMINAL_SERVICE_AND_BASIC_TERM.md`](docs/SPRINT_010_TERMINAL_SERVICE_AND_BASIC_TERM.md).
-2. Add `/bin/term` as an output-only ANSI/VT100 terminal service.
-3. Add BASIC `TERM "..."` as a safe bridge to `/bin/term` for simple text UI.
-4. Then resume Sprint 009: [`docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`](docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md).
-5. Add ASM nano mode: `ASM /asm/name.asm` should edit and validate text only.
-6. Resume ASM capture as a non-execution milestone after ASM editor mode is
+1. Resume Sprint 009: [`docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`](docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md).
+2. Add ASM nano mode: `ASM /asm/name.asm` should edit and validate text only.
+3. Resume ASM capture as a non-execution milestone after ASM editor mode is
    stable and board-tested.
-7. Add a future C3COM relocation/toolchain slice if normal C output should use
+4. Add a future C3COM relocation/toolchain slice if normal C output should use
    `.rodata` and relocations.
-8. Add system/monitor commands only after their behavior is documented and
+5. Add system/monitor commands only after their behavior is documented and
    testable.
 
 ## UX and behavior goals

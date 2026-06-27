@@ -7,6 +7,7 @@ import argparse
 import dataclasses
 import sys
 import time
+from typing import Optional
 
 import serial
 
@@ -74,9 +75,10 @@ class ShellSession:
     def is_shell_prompt(text: str) -> bool:
         return text == "> " or text.endswith("\r\n> ") or text.endswith("\n> ")
 
-    def edit(self, command: str, path: str, lines: list[str], timeout: float) -> ShellResult:
+    def edit(self, command: str, path: Optional[str], lines: list[str], timeout: float) -> ShellResult:
         raw_parts: list[str] = []
-        self.ser.write(f"{command} {path}\r".encode("utf-8"))
+        launch = command if path is None else f"{command} {path}"
+        self.ser.write(f"{launch}\r".encode("utf-8"))
         self.ser.flush()
         raw_parts.append(self._read_until_suffix(EDITOR_PROMPTS + (PROMPT,), timeout))
         if self.is_shell_prompt(raw_parts[-1]):
@@ -105,6 +107,15 @@ def print_block(label: str, text: str) -> None:
     print(text.rstrip())
 
 
+def first_free_untitled(session: ShellSession, timeout: float) -> str:
+    for index in range(1, 1000):
+        path = f"/basic/untitled-{index}.bas"
+        result = session.command(f"CAT {path}", timeout)
+        if "Open failed" in result.raw:
+            return path
+    raise RuntimeError("no free /basic/untitled-N.bas path")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", default="/dev/ttyACM0")
@@ -131,6 +142,21 @@ def main(argv: list[str]) -> int:
         banner = session.resync(args.timeout)
         print_block("banner", banner)
         require("READY." in banner or banner.endswith("> "), "did not see shell prompt")
+
+        untitled_path = first_free_untitled(session, args.timeout)
+
+        result = session.edit("BASIC", None, ["10 PRINT \"UNTITLED BASIC\"", "20 END", ":wq"], args.timeout)
+        print_block("BASIC untitled save", result.raw)
+        require("EDIT (untitled)" in result.raw, "untitled BASIC editor did not start")
+        require(f"EDIT {untitled_path}" in result.raw, "untitled BASIC did not select expected default path")
+        require("SAVED" in result.raw, "untitled BASIC program did not save")
+        require(result.raw.endswith("> "), "untitled BASIC save did not return to shell")
+
+        result = session.command(f"CAT {untitled_path}", args.timeout)
+        print_block("CAT BASIC untitled", result.raw)
+        require("10 PRINT \"UNTITLED BASIC\"" in result.raw, "untitled BASIC file missing line 10")
+        require("20 END" in result.raw, "untitled BASIC file missing line 20")
+        session.command(f"RM {untitled_path}", args.timeout)
 
         result = session.edit("BASIC", path, ["10 PRINT \"HELLO\"", "20 END", ":wq"], args.timeout)
         print_block("BASIC valid save", result.raw)

@@ -2,6 +2,8 @@
 
 #include "shell.h"
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -25,6 +27,7 @@ typedef struct {
     const char *path;
     const char *cwd;
     editor_mode_t mode;
+    bool untitled;
 } editor_request_t;
 
 editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_t *io);

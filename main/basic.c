@@ -781,10 +781,15 @@ static bool parse_quoted_string(const char **s, char *out, size_t out_len)
     return true;
 }
 
-static esp_err_t execute_service_statement(const basic_io_t *io, const char *cursor, bool hardware)
+static esp_err_t execute_service_statement(const basic_io_t *io, const char *cursor,
+                                           basic_service_kind_t kind)
 {
     if (!io || !io->service_exec) {
-        write_ln(io, hardware ? "HARDWARE service unavailable" : "SHELL service unavailable");
+        const char *name = kind == BASIC_SERVICE_HARDWARE ? "HARDWARE" :
+            kind == BASIC_SERVICE_TERM ? "TERM" : "SHELL";
+        char msg[40];
+        snprintf(msg, sizeof(msg), "%s service unavailable", name);
+        write_ln(io, msg);
         return ESP_FAIL;
     }
 
@@ -793,7 +798,7 @@ static esp_err_t execute_service_statement(const basic_io_t *io, const char *cur
         return ESP_FAIL;
     }
 
-    return io->service_exec(io->ctx, command, hardware);
+    return io->service_exec(io->ctx, command, kind);
 }
 
 static esp_err_t execute_hardware_result(const basic_hw_result_t *result)
@@ -901,11 +906,15 @@ static esp_err_t execute_line(const basic_program_t *program, int *pc, const bas
     }
 
     if (parse_keyword(&cursor, "SHELL")) {
-        return execute_service_statement(io, cursor, false);
+        return execute_service_statement(io, cursor, BASIC_SERVICE_SHELL);
     }
 
     if (parse_keyword(&cursor, "HARDWARE")) {
-        return execute_service_statement(io, cursor, true);
+        return execute_service_statement(io, cursor, BASIC_SERVICE_HARDWARE);
+    }
+
+    if (parse_keyword(&cursor, "TERM")) {
+        return execute_service_statement(io, cursor, BASIC_SERVICE_TERM);
     }
 
     if (parse_keyword(&cursor, "PINMODE")) {

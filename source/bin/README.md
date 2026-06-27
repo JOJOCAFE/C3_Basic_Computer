@@ -19,6 +19,10 @@ Current terminal-facing services:
 ```text
 /bin/nano /data/note.txt
 EDIT /data/note.txt
+/bin/nano
+EDIT
+BASIC /basic/hello.bas
+BASIC
 /bin/hardware gpio in -p <gpio> [--pull none|up|down|updown]
 /bin/hardware gpio out -p <gpio> [-v 0|1] [--open-drain]
 /bin/hardware gpio read -p <gpio>
@@ -48,10 +52,10 @@ Current terminal-facing terminal-control service:
 `/bin/term` is a firmware-linked `/bin` service, not a shell built-in, and must
 not appear in shell `HELP`. It is an output-only ANSI/VT100 helper for fixed
 escape sequences. It is not curses/ncurses, not raw-key input, not mouse input,
-and not a terminal capability database. BASIC `TERM "..."` is planned as a safe
-bridge only to the `/bin/term` command family.
+and not a terminal capability database. BASIC `TERM "..."` is implemented as a
+safe bridge only to the `/bin/term` command family.
 
-Planned BASIC bridge:
+BASIC bridge:
 
 ```basic
 TERM "clear"
@@ -68,22 +72,25 @@ Open a text file:
 ```text
 EDIT /data/note.txt
 /bin/nano /data/note.txt
+EDIT
+/bin/nano
 ```
 
 Open a BASIC source file in nano BASIC mode:
 
 ```text
 BASIC /basic/hello.bas
+BASIC
 ```
 
 BASIC mode accepts `/basic/*.bas`, validates numbered BASIC lines before save,
 and keeps BASIC runtime commands inside the editor session. `:run` saves and
 runs the current numbered BASIC buffer using the full 64 KiB nano text buffer.
 `:debug` saves and step-runs the current numbered BASIC buffer. BASIC
-shell/hardware calls use a safe whitelist: `SHELL "PWD"`, `SHELL "CAT <file>"`,
-`HARDWARE "gpio read -p <pin>"`, and `HARDWARE "adc read -p <pin>"`.
-Planned BASIC terminal calls use `TERM "..."` as an output-only bridge to
-`/bin/term`. Directory listing from BASIC is deferred until it has a stack-safe
+shell/hardware/terminal calls use a safe whitelist: `SHELL "PWD"`,
+`SHELL "CAT <file>"`, `HARDWARE "gpio read -p <pin>"`,
+`HARDWARE "adc read -p <pin>"`, and `TERM "..."` for the `/bin/term` command
+family. Directory listing from BASIC is deferred until it has a stack-safe
 adapter. Destructive commands such as `RENEW`, `RM`, `WRITE`, `CP`, `MV`, and
 native execution stay blocked.
 
@@ -116,6 +123,12 @@ Current limits and failure behavior:
 
 - `EDIT` accepts only `/data/*.txt`.
 - `BASIC` accepts only `/basic/*.bas`.
+- No-path `EDIT` and `/bin/nano` save untitled buffers to the first free
+  `/data/untitled-N.txt`.
+- No-path `BASIC` saves untitled buffers to the first free
+  `/basic/untitled-N.bas`.
+- Clean untitled `:q` exits without creating a file; dirty untitled buffers
+  require `:w`, `:wq`, or `:q!`.
 - Text buffer is 64 KiB per open file, including line separators.
 - Input line buffer is 64 KiB, bounded by the same editor capacity.
 - If allocation fails, nano prints `Out of memory` and returns a shell error.

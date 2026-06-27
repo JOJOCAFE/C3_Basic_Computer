@@ -1,6 +1,6 @@
 # Sprint 011 Task List: Untitled Nano and BASIC Launch
 
-Status: Planned
+Status: Complete; untitled text and BASIC launches are implemented and board-smoked.
 
 Goal: let `EDIT`, `/bin/nano`, and `BASIC` start without a filename. A maker
 should be able to open the editor first and decide the filename later, instead
@@ -65,50 +65,50 @@ save prompts, because the current editor is line-oriented and should stay simple
 
 ### U11-T1 - Freeze untitled editor contract
 
-- [ ] Update:
+- [x] Update:
   - `docs/SPRINT_004_NANO_EDITOR_SERVICE.md`
   - `docs/04_Shell_Reference.md`
   - `README.md`
   - `source/bin/README.md`
-- [ ] Document `EDIT`, `/bin/nano`, and `BASIC` as valid without a filename.
-- [ ] Document the default naming policy:
+- [x] Document `EDIT`, `/bin/nano`, and `BASIC` as valid without a filename.
+- [x] Document the default naming policy:
   - `/data/untitled-N.txt`
   - `/basic/untitled-N.bas`
-- [ ] Document quit/save behavior for clean and dirty untitled buffers.
-- [ ] Pass criteria:
+- [x] Document quit/save behavior for clean and dirty untitled buffers.
+- [x] Pass criteria:
   - Docs do not claim prompt-based save-as unless it is implemented.
   - Docs keep explicit path behavior unchanged.
 
 ### U11-T2 - Extend editor request model for untitled buffers
 
-- [ ] File: `source/editor/editor_service.h`.
-- [ ] Add request state for optional path / untitled launch.
-- [ ] Keep explicit path launches unchanged.
-- [ ] Pass criteria:
+- [x] File: `source/editor/editor_service.h`.
+- [x] Add request state for optional path / untitled launch.
+- [x] Keep explicit path launches unchanged.
+- [x] Pass criteria:
   - Existing `EDIT /data/name.txt` and `BASIC /basic/name.bas` still compile.
   - Untitled mode is represented explicitly, not by a fake user path string.
 
 ### U11-T3 - Add default filename allocation
 
-- [ ] File: `source/editor/editor_service.c`.
-- [ ] Add default path selection:
+- [x] File: `source/editor/editor_service.c`.
+- [x] Add default path selection:
   - text: `/data/untitled-1.txt`, then increment.
   - BASIC: `/basic/untitled-1.bas`, then increment.
-- [ ] Reuse existing path policy and traversal rejection.
-- [ ] Reject if no free default name is found within a bounded range.
-- [ ] Pass criteria:
+- [x] Reuse existing path policy and traversal rejection.
+- [x] Reject if no free default name is found within a bounded range.
+- [x] Pass criteria:
   - Existing files are never overwritten silently.
   - Default path remains inside `/workspace`.
 
 ### U11-T4 - Allow no-path launches in `/bin/nano`, `EDIT`, and `BASIC`
 
-- [ ] File: `source/bin/bin_nano.c`.
-- [ ] Allow:
+- [x] File: `source/bin/bin_nano.c`.
+- [x] Allow:
   - `/bin/nano`
   - `EDIT`
   - `BASIC`
-- [ ] Keep wrong extra arguments rejected.
-- [ ] Pass criteria:
+- [x] Keep wrong extra arguments rejected.
+- [x] Pass criteria:
   - `/bin/nano` opens untitled text mode.
   - `EDIT` opens untitled text mode.
   - `BASIC` opens untitled BASIC mode.
@@ -116,55 +116,62 @@ save prompts, because the current editor is line-oriented and should stay simple
 
 ### U11-T5 - Save and quit behavior
 
-- [ ] File: `source/editor/editor_service.c`.
-- [ ] Ensure:
+- [x] File: `source/editor/editor_service.c`.
+- [x] Ensure:
   - clean untitled `:q` exits.
   - dirty untitled `:q` refuses and explains save/discard choices.
   - dirty untitled `:q!` discards.
   - untitled `:w` saves to the selected default filename.
   - after save, editor title/status uses the real path.
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - No silent data loss.
   - No save outside `/data` or `/basic`.
 
 ### U11-T6 - Add smoke coverage
 
-- [ ] Add or extend editor smoke coverage:
+- [x] Add or extend editor smoke coverage:
   - `EDIT`, text line, `:wq`, `CAT /data/untitled-1.txt`.
   - `BASIC`, valid numbered line, `:wq`, `CAT /basic/untitled-1.bas`.
   - clean `EDIT`, `:q`.
   - dirty `EDIT`, `:q` refused, `:q!` exits.
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - Smoke fails shell-visibly on wrong default names or unsafe quit behavior.
   - Existing nano and BASIC smokes still pass.
 
 ### U11-T7 - Build and board verification
 
-- [ ] Build:
+- [x] Build:
   ```bash
   tools/idf53.sh -B build-c3-root build
   ```
-- [ ] Board smoke:
+- [x] Board smoke:
   ```bash
   tools/idf53.sh -B build-c3-root -p /dev/ttyACM0 flash
   python3 tools/nano_editor_smoke.py --port /dev/ttyACM0 --timeout 25
   python3 tools/basic_editor_smoke.py --port /dev/ttyACM0 --timeout 25
   ```
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - Build succeeds.
   - Untitled text and BASIC saves are board-tested.
   - Existing explicit filename behavior has no regression.
 
+Host-side checks run in this implementation pass:
+
+```bash
+python3 -m py_compile tools/bin_term_smoke.py tools/nano_editor_smoke.py tools/basic_editor_smoke.py
+tools/idf53.sh -B build-c3-root build
+```
+
 ### U11-T8 - Completion docs and handoff
 
-- [ ] Update:
+- [x] Update:
   - `README.md`
   - `SESSION_STATUS.md`
   - `docs/SPRINT_004_NANO_EDITOR_SERVICE.md`
   - `source/bin/README.md`
-- [ ] Record board evidence.
-- [ ] Set next candidate milestone back to Sprint 010 T10-T4 unless terminal
-  BASIC bridge is already complete.
+- [x] Record board evidence.
+- [x] Set next candidate milestone back to Sprint 009 ASM nano mode because the
+  terminal BASIC bridge is complete.
 
 ## Execution Order
 

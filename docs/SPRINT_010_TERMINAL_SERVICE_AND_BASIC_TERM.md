@@ -1,6 +1,6 @@
 # Sprint 010 Task List: Terminal Service and BASIC TERM
 
-Status: In progress; T10-T1 through T10-T3 implemented and board-smoked.
+Status: Complete; T10-T1 through T10-T8 implemented and board-smoked.
 
 Goal: add a small terminal-control service so BASIC programs can build simple
 text UIs without embedding ANSI escape strings directly. This is not a curses
@@ -122,14 +122,14 @@ ncurses in this sprint.
 
 ### T10-T4 - Add BASIC `TERM` bridge
 
-- [ ] File: `main/basic.c`.
-- [ ] Add `TERM "..."` statement.
-- [ ] Route it through the existing BASIC service execution path with a new
+- [x] File: `main/basic.c`.
+- [x] Add `TERM "..."` statement.
+- [x] Route it through the existing BASIC service execution path with a new
   service kind, not through unrestricted shell execution.
-- [ ] File: `source/editor/editor_service.c`.
-- [ ] Allow only the `/bin/term` command family for BASIC `TERM`.
-- [ ] Keep `SHELL` and `HARDWARE` bridge behavior unchanged.
-- [ ] Pass criteria:
+- [x] File: `source/editor/editor_service.c`.
+- [x] Allow only the `/bin/term` command family for BASIC `TERM`.
+- [x] Keep `SHELL` and `HARDWARE` bridge behavior unchanged.
+- [x] Pass criteria:
   - `TERM "clear"` works from BASIC.
   - `TERM "goto -r 5 -c 10"` works from BASIC.
   - `TERM "reset"` works from BASIC.
@@ -137,22 +137,22 @@ ncurses in this sprint.
 
 ### T10-T5 - Add terminal examples
 
-- [ ] Add `examples/basic/term_demo.bas` or equivalent repo-local example path.
-- [ ] Demonstrate:
+- [x] Add `examples/basic/term_demo.bas` or equivalent repo-local example path.
+- [x] Demonstrate:
   - clear screen
   - title placement
   - colored status line
   - reset before program end
-- [ ] Keep example inside currently supported BASIC syntax.
-- [ ] Pass criteria:
+- [x] Keep example inside currently supported BASIC syntax.
+- [x] Pass criteria:
   - Example loads in BASIC nano mode.
   - Example avoids unsupported strings, arrays, or unnumbered BASIC.
 
 ### T10-T6 - Add smoke tests
 
-- [ ] Add `tools/bin_term_smoke.py`.
-- [ ] Add or extend BASIC smoke coverage for `TERM`.
-- [ ] Cover:
+- [x] Add `tools/bin_term_smoke.py`.
+- [x] Add or extend BASIC smoke coverage for `TERM`.
+- [x] Cover:
   - `/bin/term clear`
   - `/bin/term home`
   - `/bin/term goto -r 3 -c 4`
@@ -160,31 +160,30 @@ ncurses in this sprint.
   - `/bin/term reset`
   - BASIC `TERM "clear"`
   - BASIC `TERM "goto -r 3 -c 4"`
-- [ ] For terminal escape validation, assert raw output contains the expected
+- [x] For terminal escape validation, assert raw output contains the expected
   ANSI byte sequences.
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - Smoke fails shell-visibly on wrong escape sequences.
   - Existing workspace, BASIC, and `/bin` smokes still pass.
 
 ### T10-T7 - Build and board verification
 
-- [ ] Compile Python smoke tools:
+- [x] Compile Python smoke tools:
   ```bash
-  python3 -m py_compile tools/bin_term_smoke.py
+  python3 -m py_compile tools/bin_term_smoke.py tools/nano_editor_smoke.py tools/basic_editor_smoke.py
   ```
-- [ ] Build:
+- [x] Build:
   ```bash
   tools/idf53.sh -B build-c3-root build
   ```
-- [ ] Board smoke:
+- [x] Board smoke:
   ```bash
   tools/idf53.sh -B build-c3-root -p /dev/ttyACM0 flash
-  python3 tools/workspace_shell_smoke.py --port /dev/ttyACM0
-  python3 tools/bin_term_smoke.py --port /dev/ttyACM0 --timeout 20
-  python3 tools/no_basic_shell_smoke.py --port /dev/ttyACM0
-  python3 tools/adversarial_shell_smoke.py --port /dev/ttyACM0
+  python3 tools/bin_term_smoke.py --port /dev/ttyACM0 --timeout 25
+  python3 tools/nano_editor_smoke.py --port /dev/ttyACM0 --timeout 25
+  python3 tools/basic_editor_smoke.py --port /dev/ttyACM0 --timeout 25
   ```
-- [ ] Pass criteria:
+- [x] Pass criteria:
   - Build succeeds.
   - Board smoke confirms `/bin/term` escape output.
   - Board smoke confirms BASIC `TERM` bridge.
@@ -192,14 +191,14 @@ ncurses in this sprint.
 
 ### T10-T8 - Completion docs and handoff
 
-- [ ] Update:
+- [x] Update:
   - `README.md`
   - `SESSION_STATUS.md`
   - `.codex/PROJECT_SKILL.md`
   - `source/bin` docs if present
-- [ ] Record board evidence.
-- [ ] Mark Sprint 010 complete only after board smoke passes.
-- [ ] Set the next candidate milestone back to Sprint 009 ASM nano mode unless
+- [x] Record board evidence.
+- [x] Mark Sprint 010 complete only after board smoke passes.
+- [x] Set the next candidate milestone back to Sprint 009 ASM nano mode unless
   the user chooses raw-key terminal input first.
 
 ## Execution Order

@@ -276,13 +276,20 @@ Current `/bin/nano` editor service:
 /bin/nano <path>
 EDIT <path>
 BASIC <path>
+/bin/nano
+EDIT
+BASIC
 ```
 
-`/bin/nano` is a small nano-style text editor service. `EDIT <path>` is the
-plain text shell launcher and edits `/data/*.txt` files only. `BASIC <path>` is
-the BASIC editor launcher and edits `/basic/*.bas` files only. BASIC mode
-validates numbered BASIC lines before save. BASIC runtime behavior is invoked
-from nano commands, not from boot-shell immediate mode.
+`/bin/nano` is a small nano-style text editor service. `EDIT [path]` is the
+plain text shell launcher and edits `/data/*.txt` files only. `BASIC [path]` is
+the BASIC editor launcher and edits `/basic/*.bas` files only. Without a path,
+text mode saves to the first free `/data/untitled-N.txt`; BASIC mode saves to
+the first free `/basic/untitled-N.bas`. A clean untitled buffer exits with `:q`
+without creating a file. A dirty untitled buffer refuses `:q` and requires
+`:w`, `:wq`, or `:q!`. BASIC mode validates numbered BASIC lines before save.
+BASIC runtime behavior is invoked from nano commands, not from boot-shell
+immediate mode.
 
 BASIC runtime editor commands:
 
@@ -302,10 +309,11 @@ expressions, single-letter variables, `REM`, `PRINT`, `LET`/assignment,
 Extended graphics, sound, network, arrays, strings, I2C/SPI BASIC commands, and
 modern unnumbered BASIC are deferred.
 
-BASIC shell and hardware access must go through an explicit safe bridge. The
-current bridge allows `SHELL "PWD"`, `SHELL "CAT <file>"`, `HARDWARE "gpio read
--p <pin>"`, and `HARDWARE "adc read -p <pin>"`. Directory listing from BASIC is
-deferred until it has a stack-safe adapter. The bridge blocks destructive or
+BASIC shell, hardware, and terminal access must go through explicit safe
+bridges. The current bridge allows `SHELL "PWD"`, `SHELL "CAT <file>"`,
+`HARDWARE "gpio read -p <pin>"`, `HARDWARE "adc read -p <pin>"`, and
+`TERM "..."` for the `/bin/term` command family. Directory listing from BASIC
+is deferred until it has a stack-safe adapter. The bridge blocks destructive or
 protected commands such as `RENEW`, `RM`, `RM -R`, `WRITE`, `CP`, `MV`, and
 native C3COM execution. `ASM <path>` remains a planned shell front end to nano.
 
@@ -326,9 +334,8 @@ by `HELP`. It is an output-only ANSI/VT100 helper for fixed escape
 sequences: clear screen, home, cursor position, foreground/background colors,
 reset, and cursor visibility. It is not curses or ncurses, does not read raw
 keys, does not use mouse input, and does not manage an alternate screen or
-screen buffer. BASIC `TERM "..."` is planned as a safe output-only bridge to
-that service, not as general shell execution.
-ASM mode.
+screen buffer. BASIC `TERM "..."` is implemented as a safe output-only bridge
+to that service, not as general shell execution.
 
 Preferred BASIC hardware access is typed and calls `source/hardware` directly,
 not the shell or `/bin/hardware` text parser:

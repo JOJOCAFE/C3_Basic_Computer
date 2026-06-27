@@ -51,6 +51,14 @@ Date: 2026-06-27
   `home`, `goto`, `color`, `reset`, `hide-cursor`, `show-cursor`, bad color
   rejection, `/bin list` containing `/bin/term`, and `HELP` not listing
   `/bin/term`.
+- Sprint 010 T10-T4 through T10-T8 are complete: BASIC `TERM "..."` uses a
+  dedicated service kind, bridges only to whitelisted `/bin/term` operations,
+  includes `examples/basic/term_demo.bas`, and is covered by
+  `tools/bin_term_smoke.py`.
+- Sprint 011 is complete: `EDIT`, `/bin/nano`, and `BASIC` can start without a
+  filename. Untitled text buffers save to `/data/untitled-N.txt`; untitled BASIC
+  buffers save to `/basic/untitled-N.bas`; clean `:q` creates no file and dirty
+  `:q` requires save or discard.
 
 ## Latest Commits
 
@@ -64,11 +72,13 @@ Date: 2026-06-27
 
 - Branch: `main`
 - Tracks `origin/main`.
-- Current Sprint 010 `/bin/term` changes are ready to commit after review.
+- Sprint 010 `/bin/term` plus BASIC `TERM` and Sprint 011 untitled editor
+  changes are implemented, board-tested, and ready to commit.
 
 ## Known Unstaged Local Changes
 
-- Sprint 010 T10-T2/T10-T3 implementation, docs, and this handoff update.
+- Sprint 010 BASIC `TERM`, Sprint 011 untitled editor launch, docs, smokes, and
+  this handoff update.
 
 ## Board Verification
 
@@ -88,16 +98,27 @@ Date: 2026-06-27
   - `/bin/term hide-cursor` emits `ESC[?25l`.
   - `/bin/term show-cursor` emits `ESC[?25h`.
   - `/bin/term color -f 8` returns `Bad argument`.
+- Latest focused BASIC `TERM` smoke checks:
+  - `TERM "clear"` emits `ESC[2J ESC[H`.
+  - `TERM "goto -r 3 -c 4"` emits `ESC[3;4H`.
+  - `TERM "color -f 2"` emits `ESC[32m`.
+  - `TERM "reset"` emits `ESC[0m`.
+  - `TERM "rm -r /"` is blocked with `BASIC TERM command blocked`.
+  - Overlong/malformed direct and BASIC TERM commands are rejected.
+- Latest untitled editor smoke checks:
+  - `EDIT`, dirty text, `:wq` creates the first free `/data/untitled-N.txt`.
+  - `/bin/nano`, dirty text, `:wq` creates the first free `/data/untitled-N.txt`.
+  - `BASIC`, numbered source, `:wq` creates the first free `/basic/untitled-N.bas`.
+  - Clean untitled `:q` does not create a file.
+  - Dirty untitled `:q` refuses and `:q!` discards.
 
 ## Recommended Next Start
 
-1. Commit and push Sprint 010 T10-T2/T10-T3 if the current diff is accepted.
-2. Continue with Sprint 010 T10-T4: add BASIC `TERM "..."` as a safe bridge to
-   `/bin/term` using a new service kind, not unrestricted shell execution.
-3. Add terminal example and formal smoke script in T10-T5/T10-T6.
-4. Then resume Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
-5. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
-6. Resume ASM capture as a non-execution milestone after ASM editor mode is
+1. Commit and push Sprint 010 BASIC `TERM` plus Sprint 011 untitled editor
+   launch if the current diff is accepted.
+2. Resume Sprint 009 from `docs/SPRINT_009_ASM_NANO_MODE_TASK_LIST.md`.
+3. Implement `ASM /asm/name.asm` as nano ASM mode with text validation only.
+4. Resume ASM capture as a non-execution milestone after ASM editor mode is
    stable and board-tested.
 
 Keep Going.

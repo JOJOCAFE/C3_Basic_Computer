@@ -47,15 +47,17 @@ Canonical service command:
 
 ```text
 /bin/nano <path>
+/bin/nano
 ```
 
 Public shell command:
 
 ```text
 EDIT <path>
+EDIT
 ```
 
-Planned no-path launch forms are tracked in
+No-path launch forms were completed in
 `docs/SPRINT_011_UNTITLED_NANO_BASIC_TASK_LIST.md`:
 
 ```text
@@ -64,13 +66,15 @@ EDIT
 BASIC
 ```
 
-Those forms should open untitled text or BASIC buffers and choose safe default
-filenames such as `/data/untitled-1.txt` and `/basic/untitled-1.bas` when saved.
+Those forms open untitled text or BASIC buffers and choose the first free
+default filename such as `/data/untitled-1.txt` or `/basic/untitled-1.bas` when
+saved.
 
 Future language commands:
 
 ```text
 BASIC <path>
+BASIC
 ASM <path>
 ```
 

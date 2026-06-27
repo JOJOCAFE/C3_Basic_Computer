@@ -103,6 +103,13 @@ When implementing or planning, treat this file as the authoritative behavior con
 - ASM capture follows the editor/plugin boundary; native C3COM execution is now
   guarded by header validation, CRC, explicit `RUN`, and standard I/O ABI
   callbacks.
+- `/bin/term` is implemented as an output-only ANSI/VT100 `/bin` service, not a
+  shell built-in. BASIC `TERM "..."` is implemented through a dedicated safe
+  service kind that can only invoke the `/bin/term` command family.
+- `EDIT`, `/bin/nano`, and `BASIC` may launch without a filename. Untitled text
+  saves to the first free `/data/untitled-N.txt`; untitled BASIC saves to the
+  first free `/basic/untitled-N.bas`; clean `:q` creates no file and dirty `:q`
+  requires save or discard.
 - BLE HID keyboard support has a compiled input boundary and boot-keyboard mapper, but real keyboard pairing remains hardware-pending.
 
 ## Protected Recovery Invariant

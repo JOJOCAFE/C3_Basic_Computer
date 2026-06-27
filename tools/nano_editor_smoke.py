@@ -7,6 +7,7 @@ import argparse
 import dataclasses
 import sys
 import time
+from typing import Optional
 
 import serial
 
@@ -81,9 +82,10 @@ class ShellSession:
     def is_shell_prompt(text: str) -> bool:
         return text == "> " or text.endswith("\r\n> ") or text.endswith("\n> ")
 
-    def edit(self, path: str, lines: list[str], timeout: float, command: str = "EDIT") -> ShellResult:
+    def edit(self, path: Optional[str], lines: list[str], timeout: float, command: str = "EDIT") -> ShellResult:
         raw_parts: list[str] = []
-        self.ser.write(f"{command} {path}\r".encode("utf-8"))
+        launch = command if path is None else f"{command} {path}"
+        self.ser.write(f"{launch}\r".encode("utf-8"))
         self.ser.flush()
         raw_parts.append(self._read_until_editor_prompt(timeout))
         for index, line in enumerate(lines):
@@ -126,6 +128,15 @@ def print_block(label: str, text: str) -> None:
     print(text.rstrip())
 
 
+def first_free_untitled(session: ShellSession, timeout: float) -> str:
+    for index in range(1, 1000):
+        path = f"/data/untitled-{index}.txt"
+        result = session.command(f"CAT {path}", timeout)
+        if "Open failed" in result.raw:
+            return path
+    raise RuntimeError("no free /data/untitled-N.txt path")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", default="/dev/ttyACM0")
@@ -160,6 +171,47 @@ def main(argv: list[str]) -> int:
         banner = session.resync(args.timeout)
         print_block("banner", banner)
         require("READY." in banner or banner.endswith("> "), "did not see shell prompt")
+
+        untitled_path = first_free_untitled(session, args.timeout)
+
+        result = session.edit(None, [":q"], args.timeout)
+        print_block("EDIT untitled clean q", result.raw)
+        require("EDIT (untitled)" in result.raw, "clean untitled editor did not start")
+        require(result.raw.endswith("> "), "clean untitled :q did not return to shell")
+
+        result = session.command(f"CAT {untitled_path}", args.timeout)
+        print_block("CAT clean untitled", result.raw)
+        require("Open failed" in result.raw, "clean untitled :q should not create a file")
+
+        result = session.edit(None, ["dirty-untitled", ":q", ":q!"], args.timeout)
+        print_block("EDIT untitled dirty q/q!", result.raw)
+        require("Unsaved changes" in result.raw, "dirty untitled :q did not refuse to quit")
+        require(":w to save" in result.raw and ":q! to discard" in result.raw,
+                "dirty untitled :q did not explain save/discard choices")
+        require(result.raw.endswith("> "), "dirty untitled :q! did not return to shell")
+
+        result = session.command(f"CAT {untitled_path}", args.timeout)
+        print_block("CAT discarded untitled", result.raw)
+        require("Open failed" in result.raw, "discarded untitled buffer should not create a file")
+
+        result = session.edit(None, ["untitled-text-line", ":wq"], args.timeout)
+        print_block("EDIT untitled save", result.raw)
+        require("EDIT (untitled)" in result.raw, "untitled save did not start untitled")
+        require(f"EDIT {untitled_path}" in result.raw, "untitled save did not select expected default path")
+        require("SAVED" in result.raw, "untitled text did not save")
+        result = session.command(f"CAT {untitled_path}", args.timeout)
+        print_block("CAT untitled", result.raw)
+        require("untitled-text-line" in result.raw, "untitled text content missing")
+        session.command(f"RM {untitled_path}", args.timeout)
+
+        untitled_path = first_free_untitled(session, args.timeout)
+        result = session.edit(None, ["bin-nano-untitled", ":wq"], args.timeout, command="/bin/nano")
+        print_block("DIRECT /bin/nano untitled", result.raw)
+        require(f"EDIT {untitled_path}" in result.raw, "direct /bin/nano untitled did not select default path")
+        require("SAVED" in result.raw, "direct /bin/nano untitled did not save")
+        result = session.command(f"CAT {untitled_path}", args.timeout)
+        require("bin-nano-untitled" in result.raw, "direct /bin/nano untitled saved content missing")
+        session.command(f"RM {untitled_path}", args.timeout)
 
         result = session.edit(path, [":help", first, second, ":p", ":w", ":q"], args.timeout)
         print_block("EDIT help/p/save/q", result.raw)

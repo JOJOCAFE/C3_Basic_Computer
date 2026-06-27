@@ -41,18 +41,12 @@ static shell_status_t bin_editor_exec(const char *args, const shell_exec_io_t *i
     char *path;
     editor_request_t request;
 
-    if (!args) {
-        return SHELL_STATUS_BAD_INPUT;
-    }
+    (void)usage;
 
-    strncpy(buf, args, sizeof(buf) - 1);
+    strncpy(buf, args ? args : "", sizeof(buf) - 1);
     buf[sizeof(buf) - 1] = '\0';
 
     path = next_token_local(&cursor);
-    if (!path) {
-        bin_write(io, usage);
-        return SHELL_STATUS_BAD_INPUT;
-    }
 
     if (*skip_ws_local(cursor) != '\0') {
         bin_write(io, "Bad input\r\n");
@@ -62,6 +56,7 @@ static shell_status_t bin_editor_exec(const char *args, const shell_exec_io_t *i
     request.path = path;
     request.cwd = "/";
     request.mode = mode;
+    request.untitled = path == NULL;
 
     return editor_status_to_shell_status(editor_run(&request, io));
 }

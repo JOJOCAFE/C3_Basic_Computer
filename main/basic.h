@@ -27,7 +27,15 @@ typedef struct {
 
 typedef int (*basic_read_line_fn)(void *ctx, char *buf, size_t len);
 typedef void (*basic_write_fn)(void *ctx, const char *text);
-typedef esp_err_t (*basic_service_exec_fn)(void *ctx, const char *command, bool hardware);
+
+typedef enum {
+    BASIC_SERVICE_SHELL = 0,
+    BASIC_SERVICE_HARDWARE,
+    BASIC_SERVICE_TERM,
+} basic_service_kind_t;
+
+typedef esp_err_t (*basic_service_exec_fn)(void *ctx, const char *command,
+                                           basic_service_kind_t kind);
 
 typedef struct {
     basic_read_line_fn read_line;

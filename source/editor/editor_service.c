@@ -1,6 +1,7 @@
 #include "editor_service.h"
 
 #include "basic.h"
+#include "bin.h"
 #include "hardware.h"
 #include "hardware_adc.h"
 #include "hardware_gpio.h"
@@ -18,6 +19,7 @@
 
 #define EDITOR_TEXT_MAX (64 * 1024)
 #define EDITOR_READ_CHUNK 128
+#define EDITOR_UNTITLED_LIMIT 999
 
 typedef struct {
     char path[STORAGE_PATH_MAX];
@@ -25,6 +27,7 @@ typedef struct {
     size_t cap;
     size_t len;
     bool dirty;
+    bool untitled;
 } editor_buffer_t;
 
 typedef struct {
@@ -128,7 +131,92 @@ static bool parse_read_pin_command(const char *command, const char *device, int 
     return true;
 }
 
-static esp_err_t basic_editor_service_exec(void *ctx, const char *command, bool hardware)
+static char *next_space_token(char **cursor)
+{
+    char *start = (char *)skip_ws(*cursor);
+    if (!start || *start == '\0') {
+        *cursor = start;
+        return NULL;
+    }
+    char *end = start;
+    while (*end && !isspace((unsigned char)*end)) {
+        end++;
+    }
+    if (*end) {
+        *end++ = '\0';
+    }
+    *cursor = end;
+    return start;
+}
+
+static bool is_allowed_term_command(const char *command)
+{
+    const char *cursor = command;
+    if (!consume_token_ci(&cursor, "clear") &&
+        !consume_token_ci(&cursor, "home") &&
+        !consume_token_ci(&cursor, "reset") &&
+        !consume_token_ci(&cursor, "hide-cursor") &&
+        !consume_token_ci(&cursor, "show-cursor")) {
+        cursor = command;
+        if (consume_token_ci(&cursor, "goto")) {
+            bool have_row = false;
+            bool have_col = false;
+            char local[96];
+            int written = snprintf(local, sizeof(local), "%s", skip_ws(cursor));
+            if (written < 0 || written >= (int)sizeof(local)) {
+                return false;
+            }
+            char *scan = local;
+            char *token = NULL;
+            while ((token = next_space_token(&scan)) != NULL) {
+                char *value = next_space_token(&scan);
+                if (!value) {
+                    return false;
+                }
+                if (strcasecmp(token, "-r") == 0 && !have_row) {
+                    have_row = true;
+                } else if (strcasecmp(token, "-c") == 0 && !have_col) {
+                    have_col = true;
+                } else {
+                    return false;
+                }
+            }
+            return have_row && have_col;
+        }
+        cursor = command;
+        if (consume_token_ci(&cursor, "color")) {
+            bool have_fg = false;
+            bool have_bg = false;
+            char local[96];
+            int written = snprintf(local, sizeof(local), "%s", skip_ws(cursor));
+            if (written < 0 || written >= (int)sizeof(local)) {
+                return false;
+            }
+            char *scan = local;
+            char *token = NULL;
+            while ((token = next_space_token(&scan)) != NULL) {
+                char *value = next_space_token(&scan);
+                if (!value) {
+                    return false;
+                }
+                if (strcasecmp(token, "-f") == 0 && !have_fg) {
+                    have_fg = true;
+                } else if (strcasecmp(token, "-b") == 0 && !have_bg) {
+                    have_bg = true;
+                } else {
+                    return false;
+                }
+            }
+            return have_fg;
+        }
+        return false;
+    }
+
+    return *skip_ws(cursor) == '\0';
+}
+
+static esp_err_t basic_editor_service_exec(void *ctx, const char *command,
+                                           basic_service_kind_t kind)
 {
     editor_basic_io_t *basic_io = (editor_basic_io_t *)ctx;
     const shell_exec_io_t *parent_io = basic_io ? basic_io->io : NULL;
@@ -150,7 +238,7 @@ static esp_err_t basic_editor_service_exec(void *ctx, const char *command, bool 
     };
 
     shell_status_t status;
-    if (hardware) {
+    if (kind == BASIC_SERVICE_HARDWARE) {
         int pin = -1;
         if (parse_read_pin_command(trimmed, "gpio", &pin)) {
             int level = 0;
@@ -192,6 +280,19 @@ static esp_err_t basic_editor_service_exec(void *ctx, const char *command, bool 
             editor_write(parent_io, "BASIC hardware command blocked\r\n");
         }
         return ESP_ERR_NOT_ALLOWED;
+    } else if (kind == BASIC_SERVICE_TERM) {
+        if (!is_allowed_term_command(trimmed)) {
+            editor_write(parent_io, "BASIC TERM command blocked\r\n");
+            return ESP_ERR_NOT_ALLOWED;
+        }
+
+        char term_line[192];
+        int written = snprintf(term_line, sizeof(term_line), "/bin/term %s", trimmed);
+        if (written <= 0 || (size_t)written >= sizeof(term_line)) {
+            editor_write(parent_io, "BASIC TERM command blocked\r\n");
+            return ESP_ERR_NOT_ALLOWED;
+        }
+        status = bin_exec_line(term_line, &io);
     } else {
         if (!command_starts_with_ci(trimmed, "PWD") &&
             !command_starts_with_ci(trimmed, "CAT")) {
@@ -268,6 +369,56 @@ static bool resolve_editor_path(const editor_request_t *request, char *out, size
         return strncmp(out, basic_prefix, strlen(basic_prefix)) == 0 && has_suffix_ci(out, ".bas");
     }
 
+    return false;
+}
+
+static bool editor_path_exists(const char *path)
+{
+    struct stat st;
+    return path && stat(path, &st) == 0;
+}
+
+static bool allocate_untitled_path(const editor_request_t *request, editor_buffer_t *buffer)
+{
+    const char *public_prefix;
+    const char *suffix;
+    char candidate[STORAGE_PATH_MAX];
+
+    if (!request || !buffer) {
+        return false;
+    }
+
+    if (request->mode == EDITOR_MODE_BASIC) {
+        public_prefix = "/basic/untitled-";
+        suffix = ".bas";
+    } else if (request->mode == EDITOR_MODE_TEXT) {
+        public_prefix = "/data/untitled-";
+        suffix = ".txt";
+    } else {
+        return false;
+    }
+
+    for (int i = 1; i <= EDITOR_UNTITLED_LIMIT; i++) {
+        int written = snprintf(candidate, sizeof(candidate), "%s%d%s", public_prefix, i, suffix);
+        if (written < 0 || written >= (int)sizeof(candidate)) {
+            return false;
+        }
+        editor_request_t candidate_request = {
+            .path = candidate,
+            .cwd = request->cwd,
+            .mode = request->mode,
+            .untitled = false,
+        };
+        if (!resolve_editor_path(&candidate_request, buffer->path, sizeof(buffer->path))) {
+            return false;
+        }
+        if (!editor_path_exists(buffer->path)) {
+            buffer->untitled = false;
+            return true;
+        }
+    }
+
+    buffer->path[0] = '\0';
     return false;
 }
 
@@ -464,15 +615,40 @@ static editor_status_t validate_before_save(const shell_exec_io_t *io, const edi
     return EDITOR_STATUS_OK;
 }
 
-static editor_status_t run_basic_buffer(const shell_exec_io_t *io, const editor_request_t *request,
+static editor_status_t ensure_save_path(const shell_exec_io_t *io, const editor_request_t *request,
                                         editor_buffer_t *buffer)
+{
+    if (!buffer || !buffer->untitled) {
+        return EDITOR_STATUS_OK;
+    }
+
+    if (!allocate_untitled_path(request, buffer)) {
+        editor_write(io, "No free untitled filename\r\n");
+        return EDITOR_STATUS_SAVE_FAILED;
+    }
+
+    editor_writef(io, "EDIT %s\r\n", buffer->path + strlen(STORAGE_WORKSPACE_MOUNT_POINT));
+    return EDITOR_STATUS_OK;
+}
+
+static editor_status_t save_editor_buffer(const shell_exec_io_t *io, const editor_request_t *request,
+                                          editor_buffer_t *buffer)
 {
     editor_status_t status = validate_before_save(io, request, buffer);
     if (status != EDITOR_STATUS_OK) {
         return status;
     }
+    status = ensure_save_path(io, request, buffer);
+    if (status != EDITOR_STATUS_OK) {
+        return status;
+    }
+    return save_buffer(buffer);
+}
 
-    status = save_buffer(buffer);
+static editor_status_t run_basic_buffer(const shell_exec_io_t *io, const editor_request_t *request,
+                                        editor_buffer_t *buffer)
+{
+    editor_status_t status = save_editor_buffer(io, request, buffer);
     if (status != EDITOR_STATUS_OK) {
         editor_write(io, "SAVE FAILED\r\n");
         return status;
@@ -516,12 +692,7 @@ static editor_status_t run_basic_buffer(const shell_exec_io_t *io, const editor_
 static editor_status_t debug_basic_buffer(const shell_exec_io_t *io, const editor_request_t *request,
                                           editor_buffer_t *buffer)
 {
-    editor_status_t status = validate_before_save(io, request, buffer);
-    if (status != EDITOR_STATUS_OK) {
-        return status;
-    }
-
-    status = save_buffer(buffer);
+    editor_status_t status = save_editor_buffer(io, request, buffer);
     if (status != EDITOR_STATUS_OK) {
         editor_write(io, "SAVE FAILED\r\n");
         return status;
@@ -580,19 +751,22 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
         return EDITOR_STATUS_OUT_OF_MEMORY;
     }
 
-    if (!resolve_editor_path(request, buffer->path, sizeof(buffer->path))) {
-        if (request && request->mode == EDITOR_MODE_BASIC) {
-            editor_write(io, "Bad editor path. Use /basic/name.bas\r\n");
-        } else {
-            editor_write(io, "Bad editor path. Use /data/name.txt\r\n");
-        }
+    if (!request || request->mode == EDITOR_MODE_ASM) {
+        editor_write(io, "Language plugin not available\r\n");
         free(line);
         free_buffer(buffer);
         return EDITOR_STATUS_OPEN_FAILED;
     }
 
-    if (request->mode == EDITOR_MODE_ASM) {
-        editor_write(io, "Language plugin not available\r\n");
+    buffer->untitled = request->untitled;
+    if (buffer->untitled) {
+        buffer->path[0] = '\0';
+    } else if (!resolve_editor_path(request, buffer->path, sizeof(buffer->path))) {
+        if (request && request->mode == EDITOR_MODE_BASIC) {
+            editor_write(io, "Bad editor path. Use /basic/name.bas\r\n");
+        } else {
+            editor_write(io, "Bad editor path. Use /data/name.txt\r\n");
+        }
         free(line);
         free_buffer(buffer);
         return EDITOR_STATUS_OPEN_FAILED;
@@ -608,7 +782,7 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
         return status;
     }
 
-    editor_writef(io, "EDIT %s\r\n", request->path);
+    editor_writef(io, "EDIT %s\r\n", buffer->untitled ? "(untitled)" : request->path);
     editor_writef(io, "%s mode. Type :help for commands.\r\n", editor_mode_name(request->mode));
     show_buffer(io, buffer);
 
@@ -630,21 +804,15 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
             clear_buffer(buffer);
             editor_write(io, "CLEARED\r\n");
         } else if (strcmp(line, ":w") == 0) {
-            status = validate_before_save(io, request, buffer);
-            if (status != EDITOR_STATUS_OK) {
-                continue;
-            }
-            status = save_buffer(buffer);
+            status = save_editor_buffer(io, request, buffer);
             if (status != EDITOR_STATUS_OK) {
                 editor_write(io, "SAVE FAILED\r\n");
-                free(line);
-                free_buffer(buffer);
-                return status;
+                continue;
             }
             editor_write(io, "SAVED\r\n");
         } else if (strcmp(line, ":q") == 0) {
             if (buffer->dirty) {
-                editor_write(io, "Unsaved changes. Use :wq or :q!\r\n");
+                editor_write(io, "Unsaved changes. Use :w to save, :wq to save and quit, or :q! to discard.\r\n");
                 continue;
             }
             free(line);
@@ -655,16 +823,10 @@ editor_status_t editor_run(const editor_request_t *request, const shell_exec_io_
             free_buffer(buffer);
             return EDITOR_STATUS_CANCELLED;
         } else if (strcmp(line, ":wq") == 0) {
-            status = validate_before_save(io, request, buffer);
-            if (status != EDITOR_STATUS_OK) {
-                continue;
-            }
-            status = save_buffer(buffer);
+            status = save_editor_buffer(io, request, buffer);
             if (status != EDITOR_STATUS_OK) {
                 editor_write(io, "SAVE FAILED\r\n");
-                free(line);
-                free_buffer(buffer);
-                return status;
+                continue;
             }
             editor_write(io, "SAVED\r\n");
             free(line);

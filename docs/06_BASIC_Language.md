@@ -16,6 +16,7 @@ Programs are stored as UTF-8 plain text in `/basic/*.bas` and edited with:
 
 ```text
 BASIC /basic/name.bas
+BASIC
 ```
 
 Inside nano BASIC mode:
@@ -126,10 +127,11 @@ TERM "color -f 2"
 TERM "reset"
 ```
 
-`TERM "..."` is planned as a safe output-only bridge to `/bin/term`. It is for
-fixed ANSI/VT100 helper operations only: clear, home, goto, color, reset, hide
-cursor, and show cursor. It is not raw ANSI string output, not curses/ncurses,
-and not general shell execution.
+`TERM "..."` is implemented as a safe output-only bridge to `/bin/term`. It is
+for fixed ANSI/VT100 helper operations only: clear, home, goto, color, reset,
+hide cursor, and show cursor. It is not raw ANSI string output, not
+curses/ncurses, and not general shell execution. Unsupported terminal strings
+stop the program with `BASIC ERROR`.
 
 Typed hardware statements:
 

@@ -155,6 +155,9 @@ shell_status_t bin_term_exec(const char *args, const shell_exec_io_t *io)
     if (!trimmed || *trimmed == '\0') {
         return term_usage(io);
     }
+    if (strlen(trimmed) >= sizeof(buf)) {
+        return term_bad_argument(io);
+    }
     strncpy(buf, trimmed, sizeof(buf) - 1);
     buf[sizeof(buf) - 1] = '\0';
 
