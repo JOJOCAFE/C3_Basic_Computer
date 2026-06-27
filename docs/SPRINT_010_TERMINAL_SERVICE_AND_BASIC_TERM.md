@@ -213,4 +213,8 @@ ncurses in this sprint.
 7. T10-T7
 8. T10-T8
 
+Untitled editor launch behavior is tracked separately in
+`docs/SPRINT_011_UNTITLED_NANO_BASIC_TASK_LIST.md` and should not be mixed into
+the BASIC `TERM` bridge implementation unless explicitly selected.
+
 Keep Going.
